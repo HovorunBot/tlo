@@ -1,0 +1,111 @@
+[project]
+name = "tlo"
+version = "0.0.0.dev0"
+description = "Lightweight async background task runner and orcestrator"
+readme = "README.md"
+authors = [
+    { name = "TwilightSparkle42", email = "jaden.corr42@gmail.com" }
+]
+maintainers = [
+    { name = "TwilightSparkle42", email = "jaden.corr42@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "mypy>=1.18.2",
+    "typing-extensions>=4.15.0",
+]
+license = { file = "LICENSE" }
+keywords = [
+    "background task runner",
+    "task runner",
+    "background tasks",
+    "async",
+    "job queue",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Repository = "https://github.com/HovorunBot/tlo"
+"Issue Tracker" = "https://github.com/HovorunBot/tlo/issues"
+
+[build-system]
+requires = ["uv_build>=0.9.7"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.2",
+    "ruff>=0.14.3",
+]
+test = [
+    "pytest>=8.4.2",
+]
+
+[project.scripts]
+test-suite = "tlo.scripts.test_suite:main"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+namespace_packages = true
+show_error_codes = true
+pretty = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]          # apply only to tests/*
+disallow_untyped_defs = false
+disallow_untyped_calls = false
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+# Enable all rule categories, then selectively ignore ones you truly don't want later
+lint.select = ["ALL"]
+# Some rules are noisy or overlap with MyPy / style preferences
+lint.ignore = [
+    "D203",    # one-blank-line-before-class (conflicts with D211)
+    "D213",    # multi-line-summary-second-line
+    "E501",    # line length handled by formatter
+    "TD003",   # missing issue link in TODO
+    "COM812",  # missing trailing comma (handled by formatter)
+]
+# Optional: set per-file ignores for tests
+lint.per-file-ignores = { "tests/**" = ["S101", "PLR2004"] }
+
+# Fix mode (useful if you run `ruff check --fix`)
+fix = true
+
+[tool.ruff.format]
+# Use Ruff’s built-in formatter (Black-compatible)
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["tlo"]
+combine-as-imports = true
+force-sort-within-sections = true
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[tool.uv]
+package = true
+
+[tool.uv.build-backend]
+source-exclude = ["tests/**"]
+wheel-exclude = ["tests/**"]
