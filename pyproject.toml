@@ -11,7 +11,6 @@ maintainers = [
 ]
 requires-python = ">=3.10"
 dependencies = [
-    "mypy>=1.18.2",
     "typing-extensions>=4.15.0",
 ]
 license = { file = "LICENSE" }
@@ -54,8 +53,6 @@ test = [
     "pytest>=8.4.2",
 ]
 
-[project.scripts]
-test-suite = "tlo.scripts.test_suite:main"
 
 [tool.mypy]
 python_version = "3.10"
@@ -71,7 +68,7 @@ disallow_untyped_defs = false
 disallow_untyped_calls = false
 
 [tool.ruff]
-target-version = "py314"
+target-version = "py310"
 line-length = 100
 # Enable all rule categories, then selectively ignore ones you truly don't want later
 lint.select = ["ALL"]
@@ -105,6 +102,7 @@ section-order = ["future", "standard-library", "third-party", "first-party", "lo
 
 [tool.uv]
 package = true
+default-groups = "all"
 
 [tool.uv.build-backend]
 source-exclude = ["tests/**"]

@@ -15,7 +15,7 @@ def test_register_uses_function_name_and_preserves_callable() -> None:
     def sample_task() -> str:
         return "ok"
 
-    assert "sample_task" in registry
+    assert registry.contains_task("sample_task")
     task = registry.get_task("sample_task")
     assert task.func() == "ok"
     assert task.interval is None
@@ -30,8 +30,8 @@ def test_register_supports_custom_name_interval_and_metadata() -> None:
     def sample_task() -> None:
         return None
 
-    assert "custom" in registry
-    task = registry["custom"]
+    assert registry.contains_task("custom")
+    task = registry.get_task("custom")
     assert task.func is sample_task
     assert task.interval == timedelta(seconds=30)
     assert task.extra == {"source": "tests"}

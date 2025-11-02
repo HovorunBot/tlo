@@ -171,7 +171,6 @@ name = "tlo"
 version = "0.0.0.dev0"
 source = { editable = "." }
 dependencies = [
-    { name = "mypy" },
     { name = "typing-extensions" },
 ]
 
@@ -185,10 +184,7 @@ test = [
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "mypy", specifier = ">=1.18.2" },
-    { name = "typing-extensions", specifier = ">=4.15.0" },
-]
+requires-dist = [{ name = "typing-extensions", specifier = ">=4.15.0" }]
 
 [package.metadata.requires-dev]
 dev = [

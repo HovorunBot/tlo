@@ -1,8 +1,13 @@
+"""Python script to run pytest across all supported Python versions."""  # noqa: INP001
+
 from __future__ import annotations
 
-from collections.abc import Sequence
 import subprocess
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 SUPPORTED_PYTHONS: Sequence[str] = ("3.10", "3.11", "3.12", "3.13", "3.14")
 
@@ -18,8 +23,7 @@ def _run_for_version(version: str, extra_args: Sequence[str]) -> int:
         "pytest",
         *extra_args,
     ]
-    print(f"\n=== Running {' '.join(cmd)} ===", flush=True)
-    result = subprocess.run(cmd, check=False)
+    result = subprocess.run(cmd, check=False)  # noqa: S603 - code is trusted
     return result.returncode
 
 
@@ -34,11 +38,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             failures.append((version, exit_code))
 
     if failures:
-        joined = ", ".join(f"{version} (exit {code})" for version, code in failures)
-        print(f"\nTest suite encountered failures: {joined}", file=sys.stderr, flush=True)
+        ", ".join(f"{version} (exit {code})" for version, code in failures)
         return 1
 
-    print("\nAll supported Python versions passed.", flush=True)
     return 0
 
 

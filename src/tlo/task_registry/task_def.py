@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-TaskCallback = Callable[..., Any] | Callable[..., Awaitable[Any]]
+if TYPE_CHECKING:
+    from tlo.tlo_types import TTaskFunc
 
 
 @dataclass(slots=True)
@@ -29,7 +29,7 @@ class TaskDef:
 
     """
 
-    func: TaskCallback
+    func: TTaskFunc
     name: str
     extra: dict[str, Any] = field(default_factory=dict)
     interval: timedelta | int | None = None
