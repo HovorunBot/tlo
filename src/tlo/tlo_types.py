@@ -1,15 +1,13 @@
 """Collection of generic types and type aliases for TLO application."""
 
-__all__ = ["TTaskDecorator", "TTaskFunc", "Unpack"]
+__all__ = ["TImplementation", "TStrEnum", "TTaskDecorator", "TTaskFunc"]
 
 from collections.abc import Awaitable, Callable
-import sys
-from typing import Any
+from typing import Any, TypeVar
 
-if sys.version_info < (3, 11):
-    from typing_extensions import Unpack
-else:
-    from typing import Unpack
+from tlo.py_compatibility import StrEnum
 
 TTaskFunc = Callable[..., Any] | Callable[..., Awaitable[Any]]
 TTaskDecorator = Callable[[TTaskFunc], TTaskFunc]
+TStrEnum = TypeVar("TStrEnum", bound=StrEnum)
+TImplementation = TypeVar("TImplementation")

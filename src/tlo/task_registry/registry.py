@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-__all__ = ["DEFAULT_REGISTRY", "AbstractTaskRegistry", "TaskRegistry", "register"]
+__all__ = [
+    "KNOWN_TASK_REGISTRIES",
+    "AbstractTaskRegistry",
+    "InMemoryTaskRegistry",
+    "TaskRegistryProtocol",
+]
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, Protocol, TypedDict, runtime_checkable
 
+from tlo.common import TaskRegistryEnum
+from tlo.errors import TaskIsNotRegisteredError
 from tlo.task_registry.task_def import TaskDef
+from tlo.utils import make_specific_register_func
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
-    from tlo.tlo_types import TTaskDecorator, TTaskFunc, Unpack
+    from tlo.py_compatibility import Unpack
+    from tlo.tlo_types import TTaskDecorator, TTaskFunc
 
 
 class _TaskDefKwargs(TypedDict):
@@ -22,7 +31,50 @@ class _TaskDefKwargs(TypedDict):
     extra: dict[str, Any]
 
 
-class AbstractTaskRegistry(ABC):
+KNOWN_TASK_REGISTRIES: dict[TaskRegistryEnum, type[TaskRegistryProtocol]] = {}
+
+_register = make_specific_register_func(KNOWN_TASK_REGISTRIES)
+
+
+@runtime_checkable
+class TaskRegistryProtocol(Protocol):
+    """Structural contract for task registry implementations.
+
+    Concrete registries store metadata about callables scheduled as background tasks.
+    """
+
+    def register(
+        self,
+        name: str | None = None,
+        *,
+        interval: int | timedelta | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> TTaskDecorator:
+        """Return a decorator that stores the wrapped callable in the registry.
+
+        :param name: Optional explicit name used to register the task.
+        :param interval: Optional scheduling hint expressed in seconds or as ``datetime.timedelta``.
+        :param extra: Arbitrary metadata retained alongside the task definition.
+        :returns: A decorator that registers the wrapped callable.
+        """
+
+    def get_task(self, name: str) -> TaskDef:
+        """Return the task definition registered under *name*.
+
+        :param name: Identifier previously supplied when the task was registered.
+        """
+
+    def list_tasks(self) -> list[TaskDef]:
+        """Return the collection of registered task definitions."""
+
+    def list_task_names(self) -> list[str]:
+        """Return the names of all registered tasks."""
+
+    def contains_task(self, name: str) -> bool:
+        """Return ``True`` when a task is registered under *name*."""
+
+
+class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
     """Abstract base class for task registries.
 
     Specify public interfaces for any Registry implementation which may be used by TLO application
@@ -96,7 +148,8 @@ class AbstractTaskRegistry(ABC):
         """
 
 
-class TaskRegistry(AbstractTaskRegistry):
+@_register(TaskRegistryEnum.InMemoryTaskRegistry)
+class InMemoryTaskRegistry(AbstractTaskRegistry):
     """Store and retrieve task definitions registered with the TLO runtime."""
 
     def __init__(self) -> None:
@@ -109,6 +162,12 @@ class TaskRegistry(AbstractTaskRegistry):
 
     def get_task(self, name: str) -> TaskDef:
         """Return the task definition registered under *name*."""
+        if name not in self._tasks:
+            msg = (
+                f"Task {name!r} is not registered. Ensure you don't made a typo "
+                f"or registred specified task into registry"
+            )
+            raise TaskIsNotRegisteredError(msg)
         return self._tasks[name]
 
     def list_tasks(self) -> list[TaskDef]:
@@ -122,7 +181,3 @@ class TaskRegistry(AbstractTaskRegistry):
     def contains_task(self, name: str) -> bool:
         """Return ``True`` if a task is registered under *name*."""
         return name in self._tasks
-
-
-DEFAULT_REGISTRY = TaskRegistry()
-register = DEFAULT_REGISTRY.register

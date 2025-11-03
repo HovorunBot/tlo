@@ -79,6 +79,9 @@ lint.ignore = [
     "E501",    # line length handled by formatter
     "TD003",   # missing issue link in TODO
     "COM812",  # missing trailing comma (handled by formatter)
+    "ANN401", # Any as a kwargs argument
+    "TD002", # Missing author in TODO
+    "FIX002", # Line contains TODO
 ]
 # Optional: set per-file ignores for tests
 lint.per-file-ignores = { "tests/**" = ["S101", "PLR2004"] }

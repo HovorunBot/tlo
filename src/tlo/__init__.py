@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from .task_registry.registry import DEFAULT_REGISTRY, TaskRegistry, register
+from .task_registry.registry import InMemoryTaskRegistry
 
-__all__ = ["DEFAULT_REGISTRY", "TaskRegistry", "hello", "register"]
+__all__ = ["InMemoryTaskRegistry", "hello"]
 
 
 def hello() -> str:
