@@ -82,6 +82,7 @@ lint.ignore = [
     "ANN401", # Any as a kwargs argument
     "TD002", # Missing author in TODO
     "FIX002", # Line contains TODO
+    "S101", # asser are used not for logic, but ensuring incorrect code usage presented
 ]
 # Optional: set per-file ignores for tests
 lint.per-file-ignores = { "tests/**" = ["S101", "PLR2004"] }

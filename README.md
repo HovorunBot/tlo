@@ -6,8 +6,9 @@ TLO (Task Layer Operations) is a lightweight toolkit for registering and running
 
 ## Key Features
 - Minimal, decorator-driven API for registering recurring async or sync callables.
-- In-memory reference implementations that work immediately for prototypes and tests.
-- Protocol-based registry and state-store contracts that are easy to replace with your own services.
+- In-memory reference implementations (registry, queues, state store) that work immediately for prototypes and tests.
+- Protocol-based registry, queue, and state-store contracts that are easy to replace with your own services.
+- Multiple queue strategies (simple list, per-name deque, and in-memory SQLite) that share one contract and are validated by shared tests.
 - Strong typing and linting defaults that keep contributions consistent.
 
 ## Runtime Context and Configuration
@@ -35,6 +36,7 @@ Environment variables use the `TLO_` prefix and map directly to settings fields:
 | --- | --- | --- |
 | `TLO_TASK_REGISTRY` | Dotted Python path or `TaskRegistryEnum` value for the task registry. | `InMemoryTaskRegistry` |
 | `TLO_TASK_STATE_STORE` | Dotted Python path or `TaskStateStoreEnum` value for the task state store. | `InMemoryTaskStateStore` |
+| `TLO_QUEUE` | Dotted Python path or `QueueEnum` value for the queue implementation. | `MapQueue` |
 
 ### Task State Records
 `tlo.task_state_store` defines a minimal protocol and an in-memory implementation. `TaskStateRecord` captures the lifecycle of a task execution with timestamps, result payloads, and a `TaskStatus` enum (`Pending`, `Running`, `Failed`, `Succeeded`). Swap in your own persistence layer by registering an implementation that satisfies `TaskStateStoreProtocol`.
@@ -52,6 +54,9 @@ uv run mypy .
 # Lint and format the project
 uv run ruff check
 uv run ruff format
+
+# Run the queue implementation parity tests
+uv run pytest tests/test_queue.py
 ```
 
 Docstrings use reStructuredText and are enforced by Ruff, so prefer `:param:` directives and descriptive prose when documenting new APIs.

@@ -18,3 +18,11 @@ class TloApplicationError(TloError, AssertionError):
 
 class InvalidSpecifiedTypeError(TloError, TypeError):
     """Raised when a specified type by settings is invalid."""
+
+
+class QueueError(TloApplicationError):
+    """Base class for all queue-related errors."""
+
+
+class NoTaskInQueueError(QueueError):
+    """Raised when attempting to dequeue or remove from an empty queue."""

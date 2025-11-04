@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Any
 
 from tlo.py_compatibility import StrEnum
+from tlo.tlo_types import FuncName, TaskId
 
 
 class TaskStatus(StrEnum):
@@ -18,14 +19,16 @@ class TaskStatus(StrEnum):
     """Task failed to execute."""
     Succeeded = "Succeeded"
     """Task executed successfully."""
+    Cancelled = "Cancelled"
+    """Task was cancelled."""
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class TaskStateRecord:
     """Describe a record of a task execution result."""
 
-    id: str
-    name: str
+    id: TaskId
+    name: FuncName
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None

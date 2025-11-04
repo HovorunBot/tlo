@@ -6,7 +6,7 @@ import dataclasses
 import os
 from typing import Any
 
-from tlo.common import TaskRegistryEnum, TaskStateStoreEnum
+from tlo.common import QueueEnum, TaskRegistryEnum, TaskStateStoreEnum
 
 
 @dataclasses.dataclass
@@ -15,6 +15,7 @@ class TloSettings:
 
     task_registry: TaskRegistryEnum | str
     task_state_store: TaskStateStoreEnum | str
+    queue: QueueEnum | str
 
     @classmethod
     def from_defaults(cls) -> dict[str, Any]:
@@ -22,6 +23,7 @@ class TloSettings:
         return {
             "task_registry": TaskRegistryEnum.InMemoryTaskRegistry,
             "task_state_store": TaskStateStoreEnum.InMemoryTaskStateStore,
+            "queue": QueueEnum.MapQueue,
         }
 
     @classmethod

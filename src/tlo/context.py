@@ -5,8 +5,9 @@ from typing import Any, cast
 
 from typing_extensions import assert_never
 
-from tlo.common import TaskRegistryEnum, TaskStateStoreEnum
+from tlo.common import QueueEnum, TaskRegistryEnum, TaskStateStoreEnum
 from tlo.errors import InvalidSpecifiedTypeError, TloApplicationError
+from tlo.queue.queue import KNOWN_QUEUES, QueueProtocol
 from tlo.settings import TloSettings
 from tlo.task_registry.registry import (
     KNOWN_TASK_REGISTRIES,
@@ -40,6 +41,12 @@ class TloContext:
             KNOWN_TASK_STATE_STORES,
             TaskStateStoreProtocol,  # type: ignore[type-abstract]
             TaskStateStoreEnum,
+        )
+        self._queue = self._initialize(
+            self._settings.queue,
+            KNOWN_QUEUES,
+            QueueProtocol,  # type: ignore[type-abstract]
+            QueueEnum,
         )
 
     def _unregistered_known_type(self, type_: TStrEnum) -> TloApplicationError:
