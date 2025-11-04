@@ -28,7 +28,11 @@ class TloContext:
     """
 
     def __init__(self, **settings: Any) -> None:
-        """Initialise the context with the registries selected in :class:`~tlo.settings.TloSettings`."""
+        """Initialise runtime services declared in :class:`~tlo.settings.TloSettings`.
+
+        :param settings: Keyword overrides passed directly to :meth:`TloSettings.load`.
+            These overrides take precedence over environment variables and defaults.
+        """
         self._settings = TloSettings.load(**settings)
         self._task_registry = self._initialize(
             self._settings.task_registry,
@@ -50,6 +54,7 @@ class TloContext:
         )
 
     def _unregistered_known_type(self, type_: TStrEnum) -> TloApplicationError:
+        """Return an error when a known enum value lacks a registered implementation."""
         msg = (
             f"Found unregistered type: {type_!r}. "
             f"If you are developer, ensure you register it here. "
@@ -60,6 +65,7 @@ class TloContext:
     def _invalid_specified_type(
         self, py_path: str, expected_type: type[TImplementation]
     ) -> InvalidSpecifiedTypeError:
+        """Return an error when importing a dotted path yields the wrong type."""
         msg = (
             f"Object specified by {py_path!r} is not an instance of {expected_type!r}. "
             f"Please, ensure correctness of application configuration."
@@ -75,6 +81,17 @@ class TloContext:
         expected_type: type[TImplementation],
         enum_type: type[TStrEnum],
     ) -> TImplementation:
+        """Instantiate either a registered enum implementation or a dotted Python path.
+
+        :param settings_value: Value provided by :class:`TloSettings`, either an enum member
+            or a dotted import path string.
+        :param registry: Mapping of enum values to concrete classes.
+        :param expected_type: Protocol or abstract base class that the result must satisfy.
+        :param enum_type: Enum class associated with *registry*.
+        :returns: Instantiated implementation matching *settings_value*.
+        :raises TloApplicationError: If an enum value is not registered.
+        :raises InvalidSpecifiedTypeError: If the dotted path resolves to an incompatible type.
+        """
         match settings_value:
             case _ if isinstance(settings_value, enum_type):
                 if settings_value in registry:
@@ -91,8 +108,11 @@ class TloContext:
         """Resolve a dotted Python path into an instantiated object.
 
         :param py_path: Fully qualified import path in the ``package.module.Class`` format.
+        :param expected_type: Protocol or ABC instance the resulting object must satisfy.
         :returns: An instance of the class referred to by *py_path*.
-        :raises (ImportError, AttributeError): If the path cannot be imported.
+        :raises ImportError: If the module portion cannot be imported.
+        :raises AttributeError: If the target attribute is missing.
+        :raises InvalidSpecifiedTypeError: If the object does not implement *expected_type*.
         """
         module, klass = py_path.rsplit(".", 1)
         module_obj = importlib.import_module(module)

@@ -1,4 +1,4 @@
-"""Module specifiing queuing strategies."""
+"""Queue strategies and helper building blocks used by the TLO runtime."""
 
 from __future__ import annotations
 
@@ -89,9 +89,10 @@ class AbstractQueue(QueueProtocol, ABC):
 
 
 class InsertQtMixin:
-    """Mixin providing logic of inserting QueuedTask into the existing queue."""
+    """Mixin providing insertion helpers that respect ETA ordering semantics."""
 
     def _enqueue_without_eta(self, task: QueuedTask, queue: MutableSequence[QueuedTask]) -> None:
+        """Insert a task lacking ETA just before the first ETA-aware entry."""
         assert task.eta is None, (
             "Incorrect call: function is exclusive for QueuedTask without provided ETA"
         )
@@ -104,6 +105,7 @@ class InsertQtMixin:
         queue.append(task)
 
     def _enqueue_with_eta(self, task: QueuedTask, queue: MutableSequence[QueuedTask]) -> None:
+        """Insert a task with ETA while keeping the queue sorted ascending by ETA."""
         assert task.eta is not None, (
             "Incorrect call: function is exclusive for QueuedTask with provided ETA"
         )
@@ -159,6 +161,7 @@ class SimpleInMemoryQueue(AbstractQueue, InsertQtMixin):
         return self._next_task(queue_name)
 
     def _next_task(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+        """Return the next eligible task for the given queue name, if any."""
         queued_tasks = (qt for qt in self._queue if qt.queue_name == queue_name)
         now = datetime.now(timezone.utc)
         for qt in queued_tasks:
