@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: "astral-sh/setup-uv@v3"
+      - name: Run tests
+        env:
+          UV_PYTHON: ${{ matrix.python-version }}
+        run: uv run --frozen pytest
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.10"
+    steps:
+      - uses: "actions/checkout@v4"
+      - uses: "actions/setup-python@v5"
+        with:
+          python-version: ${{ env.UV_PYTHON }}
+      - uses: "astral-sh/setup-uv@v3"
+      - name: Run mypy
+        run: uv run --frozen mypy .
+      - name: Ruff check
+        run: uv run --frozen ruff check .
+      - name: Ruff format (lint mode)
+        run: uv run --frozen ruff format --check .
