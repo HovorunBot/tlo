@@ -26,9 +26,12 @@ jobs:
           # cache-dependency-glob: "uv.lock"
           cache-dependency-glob: "pyproject.toml"
 
+      - name: Create venv
+        run: uv venv
+
       # Install your src-layout project in editable mode, so `tlo` is importable
       - name: Install project
-        run: uv pip install -e .
+        run: uv sync
 
       - name: Run tests
         run: uv run pytest .
@@ -48,14 +51,8 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
 
-      # Install project + linting tools
-      # Option A: tools as plain deps
       - name: Install project and lint deps
-        run: uv pip install -e . mypy ruff
-
-      # Option B (preferred if you have extras, e.g. [project.optional-dependencies] dev = ["mypy", "ruff", ...]):
-      # - name: Install project and lint deps
-      #   run: uv pip install -e ".[dev]"
+        run: uv venv && uv sync
 
       - name: Run mypy
         run: uv run mypy --config-file pyproject.toml .
