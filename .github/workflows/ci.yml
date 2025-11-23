@@ -44,7 +44,7 @@ jobs:
         run: uv run ruff check
 
       - name: Run formatting
-        run: uv ruff format --check --diff
+        run: uv run ruff format --check --diff
 
       - name: Run mypy
         run: uv run mypy .
