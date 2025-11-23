@@ -11,7 +11,7 @@ jobs:
     name: continuous-integration
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: ${{ github.workspace }}/src
+      PYTHONPATH: ./src
     strategy:
       matrix:
         python-version:
@@ -32,6 +32,9 @@ jobs:
 
       - name: Install the project
         run: uv sync --locked --all-extras --dev
+
+      - name: Install package in editable mode
+        run: uv pip install -e .
 
       - name: Run tests
         # For example, using `pytest`
