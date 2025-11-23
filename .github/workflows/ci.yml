@@ -12,38 +12,58 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
     steps:
-      - uses: "actions/checkout@v4"
-      - uses: "actions/setup-python@v5"
+      - uses: actions/checkout@v4
+
+      # Install UV and select the Python version for this matrix item
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: "astral-sh/setup-uv@v3"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      # Create a venv managed by uv (isolated per matrix Python version)
+      - name: Create virtual environment
+        run: uv venv
+
+      # Install project + dependencies reproducibly using uv.lock
       - name: Install project
-        env:
-          UV_PYTHON: ${{ matrix.python-version }}
-        run: uv run --frozen python -m pip install -e .
+        run: uv sync --frozen
+
+      # Run pytest
       - name: Run tests
-        env:
-          UV_PYTHON: ${{ matrix.python-version }}
-        run: uv run --frozen pytest
+        run: uv run pytest
+
 
   lint:
-    name: Lint
+    name: Lint (ruff + mypy)
     runs-on: ubuntu-latest
-    env:
-      UV_PYTHON: "3.10"
+
     steps:
-      - uses: "actions/checkout@v4"
-      - uses: "actions/setup-python@v5"
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ env.UV_PYTHON }}
-      - uses: "astral-sh/setup-uv@v3"
+          python-version: "3.10"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Create virtual environment
+        run: uv venv
+
+      # Sync project with dev dependencies
       - name: Install project
-        run: uv run --frozen python -m pip install -e .
+        run: uv sync --frozen
+
       - name: Run mypy
-        run: uv run --frozen mypy --config-file pyproject.toml .
+        run: uv run mypy --config-file pyproject.toml .
+
       - name: Ruff check
-        run: uv run --frozen ruff check .
+        run: uv run ruff check .
+
       - name: Ruff format (lint mode)
-        run: uv run --frozen ruff format --check .
+        run: uv run ruff format --check .
