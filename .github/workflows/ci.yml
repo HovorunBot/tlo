@@ -17,25 +17,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install UV and select the Python version for this matrix item
-      - name: Install uv
+      - name: Install uv (Python ${{ matrix.python-version }})
         uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          # If you use uv.lock, prefer that instead of pyproject:
+          # cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "pyproject.toml"
 
-      # Create a venv managed by uv (isolated per matrix Python version)
-      - name: Create virtual environment
-        run: uv venv
-
-      # Install project + dependencies reproducibly using uv.lock
+      # Install your src-layout project in editable mode, so `tlo` is importable
       - name: Install project
-        run: uv sync --frozen
+        run: uv pip install -e .
 
-      # Run pytest
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest .
 
 
   lint:
@@ -45,19 +41,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
+      - name: Install uv (lint env)
         uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.10"
           enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          cache-dependency-glob: "pyproject.toml"
 
-      - name: Create virtual environment
-        run: uv venv
+      # Install project + linting tools
+      # Option A: tools as plain deps
+      - name: Install project and lint deps
+        run: uv pip install -e . mypy ruff
 
-      # Sync project with dev dependencies
-      - name: Install project
-        run: uv sync --frozen
+      # Option B (preferred if you have extras, e.g. [project.optional-dependencies] dev = ["mypy", "ruff", ...]):
+      # - name: Install project and lint deps
+      #   run: uv pip install -e ".[dev]"
 
       - name: Run mypy
         run: uv run mypy --config-file pyproject.toml .
