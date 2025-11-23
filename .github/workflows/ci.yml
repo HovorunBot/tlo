@@ -10,6 +10,8 @@ jobs:
   build:
     name: continuous-integration
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/src
     strategy:
       matrix:
         python-version:
