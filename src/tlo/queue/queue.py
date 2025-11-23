@@ -5,20 +5,26 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from datetime import datetime, timezone
-import json
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
-from typing_extensions import assert_never
-
-from tlo.common import TLO_DEFAULT_QUEUE_NAME, QueueEnum, WithSqliteInMemory
-from tlo.errors import NoTaskInQueueError
-from tlo.queue.queued_item import QueuedTask
+from tlo.common import QueueEnum
+from tlo.errors import TloQueueEmptyError
 from tlo.utils import make_specific_register_func
 
 if TYPE_CHECKING:
-    from collections.abc import MutableSequence
-
+    from tlo.queue.queued_item import QueuedTask
+    from tlo.settings import TloSettings
     from tlo.tlo_types import TaskId
+
+
+def _queue_sort_key(qt: QueuedTask) -> datetime:
+    """Sort by ETA when provided, otherwise by enqueue timestamp."""
+    if qt.eta is None:
+        return qt.enqueued_at
+
+    assert isinstance(qt.eta, datetime), "Must be datetime for ETA at this point"
+    return qt.eta
+
 
 KNOWN_QUEUES: dict[QueueEnum, type[QueueProtocol]] = {}
 _register = make_specific_register_func(KNOWN_QUEUES)
@@ -28,19 +34,28 @@ _register = make_specific_register_func(KNOWN_QUEUES)
 class QueueProtocol(Protocol):
     """Public interface for queue implementations."""
 
+    settings: TloSettings
+
+    @property
+    def default_queue(self) -> str:
+        """Return the default queue name."""
+
     def enqueue(self, item: QueuedTask) -> None:
         """Add a task to the queue to be executed later."""
 
-    def dequeue(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask:
+    def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return the next eligible task, honouring ETA and exclusiveness.
 
         :param queue_name: Optional queue name to dequeue from.
             If not provided, a default queue is used.
         :return: The next eligible task.
-        :raises EmptyQueueError: If the queue is empty.
+        :raises TloQueueEmptyError: If the queue is empty.
         """
 
-    def peek(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+    def dequeue_any_unsafe(self, queue_name: str | None = None) -> QueuedTask:
+        """Return the next task ignoring ETA checks (unsafe, for admin flows only)."""
+
+    def peek(self, queue_name: str | None = None) -> QueuedTask | None:
         """Non-destructive look at next eligible task."""
 
     def remove(self, task_id: TaskId) -> None:
@@ -59,16 +74,29 @@ class QueueProtocol(Protocol):
 class AbstractQueue(QueueProtocol, ABC):
     """Base helper providing common logic and validation."""
 
+    def __init__(self, settings: TloSettings) -> None:
+        """Store configuration used by queue implementations."""
+        self._settings = settings
+
+    @property
+    def default_queue(self) -> str:
+        """Return the default queue name."""
+        return self._settings.default_queue
+
     @abstractmethod
     def enqueue(self, item: QueuedTask) -> None:
         """Add a task to the queue to be executed later."""
 
     @abstractmethod
-    def dequeue(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask:
+    def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return the next eligible task, honouring ETA and exclusiveness."""
 
     @abstractmethod
-    def peek(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+    def dequeue_any_unsafe(self, queue_name: str | None = None) -> QueuedTask:
+        """Return the next task ignoring ETA checks (unsafe, for admin flows only)."""
+
+    @abstractmethod
+    def peek(self, queue_name: str | None = None) -> QueuedTask | None:
         """Non-destructive look at next eligible task."""
 
     @abstractmethod
@@ -88,80 +116,53 @@ class AbstractQueue(QueueProtocol, ABC):
         """Return a number of tasks in all queues."""
 
 
-class InsertQtMixin:
-    """Mixin providing insertion helpers that respect ETA ordering semantics."""
-
-    def _enqueue_without_eta(self, task: QueuedTask, queue: MutableSequence[QueuedTask]) -> None:
-        """Insert a task lacking ETA just before the first ETA-aware entry."""
-        assert task.eta is None, (
-            "Incorrect call: function is exclusive for QueuedTask without provided ETA"
-        )
-        for idx, existing in enumerate(queue):
-            if existing.eta is None:
-                continue
-            queue.insert(idx, task)
-            return
-
-        queue.append(task)
-
-    def _enqueue_with_eta(self, task: QueuedTask, queue: MutableSequence[QueuedTask]) -> None:
-        """Insert a task with ETA while keeping the queue sorted ascending by ETA."""
-        assert task.eta is not None, (
-            "Incorrect call: function is exclusive for QueuedTask with provided ETA"
-        )
-        assert isinstance(task.eta, datetime), "Must be datetime for ETA at this point"
-        for idx, existing in enumerate(queue):
-            if existing.eta is None:
-                continue
-            assert isinstance(existing.eta, datetime), "Must be datetime for ETA at this point"
-            if existing.eta <= task.eta:
-                continue
-            queue.insert(idx, task)
-            return
-
-        # If none of the items met the criteria, append to the right
-        queue.append(task)
-
-
 @_register(QueueEnum.SimpleInMemoryQueue)
-class SimpleInMemoryQueue(AbstractQueue, InsertQtMixin):
+class SimpleInMemoryQueue(AbstractQueue):
     """The simplest in-memory queue implementation represented as a linear queue.
 
     Filtration is made exclusively by iteration via the single queue record
     """
 
-    def __init__(self) -> None:
+    def __init__(self, settings: TloSettings) -> None:
         """Initialize a queue as an empty list."""
+        super().__init__(settings)
         self._queue: list[QueuedTask] = []
 
     def enqueue(self, qt: QueuedTask) -> None:
-        """Add a task to the queue to be executed later, respecting ETA order."""
-        # If queue empty — append trivially
-        match qt:
-            case _ if not self._queue:
-                self._queue.append(qt)
-            case _ if qt.eta is None:
-                self._enqueue_without_eta(qt, self._queue)
-            case _ if qt.eta is not None:
-                self._enqueue_with_eta(qt, self._queue)
-            case _:
-                assert_never(qt)
+        """Add a task to the queue and maintain ordering by ETA/enqueued time."""
+        self._queue.append(qt)
+        self._queue.sort(key=_queue_sort_key)
 
-    def dequeue(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask:
+    def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return the next eligible task, honouring ETA and exclusiveness."""
+        queue_name = queue_name or self._settings.default_queue
+
         if (qt := self._next_task(queue_name)) is not None:
             self._queue.remove(qt)
             return qt
 
         msg = f"No task found in {queue_name!r} queue."
-        raise NoTaskInQueueError(msg)
+        raise TloQueueEmptyError(msg)
 
-    def peek(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+    def peek(self, queue_name: str | None = None) -> QueuedTask | None:
         """Non-destructive look at next eligible task."""
+        queue_name = queue_name or self._settings.default_queue
         return self._next_task(queue_name)
 
-    def _next_task(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+    def dequeue_any_unsafe(self, queue_name: str | None = None) -> QueuedTask:
+        """Remove next task for queue without ETA checks (unsafe)."""
+        queue_name = queue_name or self._settings.default_queue
+        for idx, qt in enumerate(self._queue):
+            if qt.queue_name == queue_name:
+                return self._queue.pop(idx)
+
+        msg = f"No task found in {queue_name!r} queue."
+        raise TloQueueEmptyError(msg)
+
+    def _next_task(self, queue_name: str | None) -> QueuedTask | None:
         """Return the next eligible task for the given queue name, if any."""
+        queue_name = queue_name or self._settings.default_queue
+
         queued_tasks = (qt for qt in self._queue if qt.queue_name == queue_name)
         now = datetime.now(timezone.utc)
         for qt in queued_tasks:
@@ -170,18 +171,23 @@ class SimpleInMemoryQueue(AbstractQueue, InsertQtMixin):
 
             assert isinstance(qt.eta, datetime), "Must be datetime for ETA at this point"
             if qt.eta > now:
-                break
+                continue
 
             return qt
 
         return None
 
     def remove(self, task_id: TaskId) -> None:
-        """Remove a queued task from the queue by its ID."""
+        """Remove a queued task from the queue by its ID.
+
+        :raises TloQueueEmptyError: If the task is not found.
+        """
         for idx, qt in enumerate(self._queue):
             if qt.id == task_id:
                 del self._queue[idx]
                 return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
 
     def __len__(self) -> int:
         """Return the number of tasks in any provided queue."""
@@ -200,58 +206,78 @@ class SimpleInMemoryQueue(AbstractQueue, InsertQtMixin):
 
 
 @_register(QueueEnum.MapQueue)
-class MapQueue(AbstractQueue, InsertQtMixin):
+class MapQueue(AbstractQueue):
     """Simplest queue implementation using :class:`collections.deque`.
 
     Designed for synchronous single-process operation.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, settings: TloSettings) -> None:
         """Initialize an empty in-memory queue based on map of `deque` objects.
 
         It is a bit more complicated than :class:`SimpleInMemoryQueue` but
         should avoid multiple unnecessary iterations and filtration compared to `SimpleInMemoryQueue`.
         """
+        super().__init__(settings)
         self._queue: defaultdict[str, deque[QueuedTask]] = defaultdict(lambda: deque())
 
     def enqueue(self, qt: QueuedTask) -> None:
         """Add a task to the queue to be executed later."""
         queue = self._queue[qt.queue_name]
-        match qt:
-            case _ if not queue:
-                queue.append(qt)
-            case _ if qt.eta is None:
-                self._enqueue_without_eta(qt, queue)
-            case _ if qt.eta is not None:
-                self._enqueue_with_eta(qt, queue)
-            case _:
-                assert_never(qt)
+        queue.append(qt)
+        # Re-sort to keep earliest ETA/enqueued tasks in front.
+        sorted_queue = sorted(queue, key=_queue_sort_key)
+        self._queue[qt.queue_name] = deque(sorted_queue)
 
-    def dequeue(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask:
+    def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return and remove the next eligible task for the requested queue."""
+        queue_name = queue_name or self._settings.default_queue
         queue = self._queue[queue_name]
         now = datetime.now(timezone.utc)
-        if queue and (queue[0].eta is None or queue[0].eta <= now):  # type: ignore[operator]
-            return queue.popleft()
+        for _ in range(len(queue)):
+            qt = queue[0]
+            if qt.eta is None or qt.eta <= now:  # type: ignore[operator]
+                return queue.popleft()
+            queue.rotate(-1)
         msg = f"No task found in {queue_name!r} queue."
-        raise NoTaskInQueueError(msg)
+        raise TloQueueEmptyError(msg)
 
-    def peek(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
+    def peek(self, queue_name: str | None = None) -> QueuedTask | None:
         """Return the next eligible task without removing it from the queue."""
+        queue_name = queue_name or self._settings.default_queue
+
         queue = self._queue[queue_name]
         now = datetime.now(timezone.utc)
-        if queue and (queue[0].eta is None or queue[0].eta <= now):  # type: ignore[operator]
-            return queue[0]
+        for _ in range(len(queue)):
+            qt = queue[0]
+            if qt.eta is None or qt.eta <= now:  # type: ignore[operator]
+                return qt
+            queue.rotate(-1)
         return None
 
+    def dequeue_any_unsafe(self, queue_name: str | None = None) -> QueuedTask:
+        """Remove and return next task ignoring ETA (unsafe, for admin flows only)."""
+        queue_name = queue_name or self._settings.default_queue
+        queue = self._queue[queue_name]
+        try:
+            return queue.popleft()
+        except IndexError as exc:
+            msg = f"No task found in {queue_name!r} queue."
+            raise TloQueueEmptyError(msg) from exc
+
     def remove(self, task_id: TaskId) -> None:
-        """Remove a queued task from the queue whenever it is."""
+        """Remove a queued task from the queue whenever it is.
+
+        :raises TloQueueEmptyError: If the task is not found.
+        """
         for queue in self._queue.values():
             for qt in queue:
                 if qt.id != task_id:
                     continue
                 queue.remove(qt)
                 return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
 
     def __len__(self) -> int:
         """Return a number of tasks stored across all map entries."""
@@ -263,115 +289,4 @@ class MapQueue(AbstractQueue, InsertQtMixin):
 
     def total_tasks(self) -> int:
         """Return total number of tasks held by the map queue."""
-        return len(self)
-
-
-@_register(QueueEnum.InMemorySqliteQueue)
-class InMemorySqliteQueue(AbstractQueue, WithSqliteInMemory):
-    """Simplest queue implementation using in memory sqlite database."""
-
-    def _init_schema(self) -> None:
-        self.sqlite_connection.execute(QueuedTask.to_sql_table())
-        self.sqlite_connection.commit()
-
-    def __init__(self) -> None:
-        """Initialize queue as a schema in in-memory SQLite database."""
-        self._init_schema()
-
-    def enqueue(self, qt: QueuedTask) -> None:
-        """Persist a task inside SQLite while preserving ETA ordering."""
-        if qt.eta is None:
-            eta_value = None
-        else:
-            assert isinstance(qt.eta, datetime), "Must be datetime for ETA at this point"
-            eta_value = qt.eta.isoformat()
-
-        self.sqlite_connection.execute(
-            """
-            INSERT OR REPLACE INTO queue
-            (id, task_name, args, kwargs, queue_name, enqueued_at, eta, exclusive)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                str(qt.id),
-                qt.task_name,
-                json.dumps(qt.args),
-                json.dumps(qt.kwargs),
-                qt.queue_name,
-                qt.enqueued_at.isoformat(),
-                eta_value,
-                int(qt.exclusive),
-            ),
-        )
-        self.sqlite_connection.commit()
-
-    def dequeue(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask:
-        """Return and remove the next eligible task for the provided queue."""
-        now = datetime.now(timezone.utc).isoformat()
-        cursor = self.sqlite_connection.execute(
-            """
-            SELECT id, task_name, args, kwargs, queue_name, enqueued_at, eta, exclusive
-            FROM queue
-            WHERE queue_name = ? AND (eta IS NULL OR eta <= ?)
-            ORDER BY
-                CASE WHEN eta IS NULL THEN 0 ELSE 1 END,  -- no-ETA first
-                eta ASC
-                LIMIT 1
-            """,
-            (queue_name, now),
-        )
-        row = cursor.fetchone()
-        if not row:
-            msg = "No eligible tasks in SQLite queue"
-            raise NoTaskInQueueError(msg)
-
-        task_id = row[0]
-        self.sqlite_connection.execute("DELETE FROM queue WHERE id = ?", (task_id,))
-        self.sqlite_connection.commit()
-
-        return QueuedTask.from_sql_schema(row)
-
-    def peek(self, queue_name: str = TLO_DEFAULT_QUEUE_NAME) -> QueuedTask | None:
-        """Return the next eligible task without removing it from SQLite."""
-        now = datetime.now(timezone.utc).isoformat()
-        cursor = self.sqlite_connection.execute(
-            """
-            SELECT id, task_name, args, kwargs, queue_name, enqueued_at, eta, exclusive
-            FROM queue
-            WHERE queue_name = ? AND (eta IS NULL OR eta <= ?)
-            ORDER BY
-                CASE WHEN eta IS NULL THEN 0 ELSE 1 END,
-                eta ASC
-                LIMIT 1
-            """,
-            (queue_name, now),
-        )
-        row = cursor.fetchone()
-        return QueuedTask.from_sql_schema(row) if row else None
-
-    def remove(self, task_id: str) -> None:
-        """Delete a task by ID regardless of its queue."""
-        self.sqlite_connection.execute("DELETE FROM queue WHERE id = ?", (task_id,))
-        self.sqlite_connection.commit()
-
-    def __len__(self) -> int:
-        """Return the total amount of rows stored in the backing table."""
-        cursor = self.sqlite_connection.execute("SELECT COUNT(*) FROM queue")
-        return int(cursor.fetchone()[0])
-
-    def total_tasks_by_queue(self) -> dict[str, int]:
-        """Return a mapping of queue_name → total number of tasks currently stored."""
-        cursor = self.sqlite_connection.execute(
-            """
-            SELECT
-                COALESCE(queue_name, 'default') AS queue_name,
-                COUNT(*) AS count
-            FROM queue
-            GROUP BY queue_name
-            """
-        )
-        return {row[0]: int(row[1]) for row in cursor.fetchall()}
-
-    def total_tasks(self) -> int:
-        """Return total number of tasks across all queues."""
         return len(self)

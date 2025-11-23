@@ -5,24 +5,25 @@ class TloError(Exception):
     """Base class for all TLO-related errors."""
 
 
-class TaskIsNotRegisteredError(TloError, KeyError):
+class TloConfigError(TloError):
+    """Raised when configuration or settings values are invalid."""
+
+
+class TloInputError(TloError):
+    """Raised when an input value is invalid."""
+
+
+class TloTaskLookupError(TloError):
     """Raised when you try to get a task which is not registered."""
 
 
-class TloApplicationError(TloError, AssertionError):
-    """Raised when a TLO development error occurred.
-
-    Used for future-proofing of some functions to ensure code is working as expected during the development phase.
-    """
+class TloInvalidRegistrationError(TloError):
+    """Raised when you incorrectly register a task."""
 
 
-class InvalidSpecifiedTypeError(TloError, TypeError):
-    """Raised when a specified type by settings is invalid."""
-
-
-class QueueError(TloApplicationError):
-    """Base class for all queue-related errors."""
-
-
-class NoTaskInQueueError(QueueError):
+class TloQueueEmptyError(TloError):
     """Raised when attempting to dequeue or remove from an empty queue."""
+
+
+class TloTaskStateDoesNotExistError(TloError):
+    """Raised when attempting to retrieve a task state that does not exist."""

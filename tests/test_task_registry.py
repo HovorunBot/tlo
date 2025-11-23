@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from tlo.task_registry.registry import InMemoryTaskRegistry
+from tlo.task_registry.task_def import IntervalSchedule
 
 
 def test_register_uses_function_name_and_preserves_callable() -> None:
@@ -18,7 +19,7 @@ def test_register_uses_function_name_and_preserves_callable() -> None:
     assert registry.contains_task("sample_task")
     task = registry.get_task("sample_task")
     assert task.func() == "ok"
-    assert task.interval is None
+    assert task.schedule is None
     assert task.extra == {}
 
 
@@ -33,7 +34,8 @@ def test_register_supports_custom_name_interval_and_metadata() -> None:
     assert registry.contains_task("custom")
     task = registry.get_task("custom")
     assert task.func is sample_task
-    assert task.interval == timedelta(seconds=30)
+    assert isinstance(task.schedule, IntervalSchedule)
+    assert task.schedule.interval == timedelta(seconds=30)
     assert task.extra == {"source": "tests"}
 
 
@@ -47,7 +49,10 @@ def test_register_accepts_timedelta_interval() -> None:
     def sample_task() -> None:
         return None
 
-    assert registry.get_task("sample_task").interval == interval
+    task_def = registry.get_task("sample_task")
+
+    assert isinstance(task_def.schedule, IntervalSchedule)
+    assert task_def.schedule.interval == interval
 
 
 def test_list_helpers_return_expected_values() -> None:

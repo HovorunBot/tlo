@@ -23,15 +23,15 @@ class TaskStatus(StrEnum):
     """Task was cancelled."""
 
 
-@dataclasses.dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True)
 class TaskStateRecord:
     """Describe a record of a task execution result."""
 
     id: TaskId
     name: FuncName
     created_at: datetime
+    created_by: str
     started_at: datetime | None = None
     finished_at: datetime | None = None
     status: TaskStatus = TaskStatus.Pending
     result: Any | None = None
-    failed: bool = False

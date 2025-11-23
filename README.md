@@ -22,23 +22,41 @@ behind-the-scenes task execution.
 
 ## Runtime Context and Configuration
 
-`TloContext` resolves runtime dependencies based on `TloSettings`. Settings are loaded in three layers: explicit keyword
-arguments, environment variables, and library defaults.
+Factory helpers resolve runtime dependencies based on `TloSettings`. Settings are loaded in three layers: explicit
+keyword arguments, environment variables, and library defaults.
 
 ```python
 from tlo.common import TaskRegistryEnum
-from tlo.context import TloContext
+from tlo.context import (
+    initialize_executor,
+    initialize_queue,
+    initialize_scheduler,
+    initialize_settings,
+    initialize_task_registry,
+    initialize_task_state_store,
+)
 
-context = TloContext(task_registry=TaskRegistryEnum.InMemoryTaskRegistry)
+settings = initialize_settings(task_registry=TaskRegistryEnum.InMemoryTaskRegistry)
+task_registry = initialize_task_registry(settings)
+task_state_store = initialize_task_state_store(settings)
+queue = initialize_queue(settings)
+scheduler = initialize_scheduler(settings, registry=task_registry, queue=queue, state_store=task_state_store)
+executor = initialize_executor(
+    settings,
+    registry=task_registry,
+    queue=queue,
+    scheduler=scheduler,
+    state_store=task_state_store,
+)
 
-task_registry = context._task_registry
-task_state_store = context._task_state_store
+# Or build a Tlo orchestrator that wires these together for you:
+# orchestrator = Tlo(tick_interval=0.1)
 ```
 
 You can also point to custom implementations by providing a dotted Python path:
 
 ```python
-context = TloContext(task_state_store="my_app.state.RedisTaskStateStore")
+settings = initialize_settings(task_state_store="my_app.state.RedisTaskStateStore")
 ```
 
 Environment variables use the `TLO_` prefix and map directly to settings fields:

@@ -13,21 +13,22 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Protocol, TypedDict, runtime_checkable
 
 from tlo.common import TaskRegistryEnum
-from tlo.errors import TaskIsNotRegisteredError
-from tlo.task_registry.task_def import TaskDef
+from tlo.errors import TloInvalidRegistrationError, TloTaskLookupError
+from tlo.task_registry.task_def import CronSchedule, IntervalSchedule, ScheduleProtocol, TaskDef
 from tlo.utils import make_specific_register_func
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
-    from tlo.py_compatibility import Unpack
+    from typing_extensions import Unpack
+
     from tlo.tlo_types import TTaskDecorator, TTaskFunc
 
 
 class _TaskDefKwargs(TypedDict):
     name: str
     func: TTaskFunc
-    interval: timedelta | int | None
+    schedule: ScheduleProtocol | None
     extra: dict[str, Any]
 
 
@@ -48,12 +49,16 @@ class TaskRegistryProtocol(Protocol):
         name: str | None = None,
         *,
         interval: int | timedelta | None = None,
+        cron: str | None = None,
+        schedule: ScheduleProtocol | None = None,
         extra: dict[str, Any] | None = None,
     ) -> TTaskDecorator:
         """Return a decorator that stores the wrapped callable in the registry.
 
         :param name: Optional explicit name used to register the task.
         :param interval: Optional scheduling hint expressed in seconds or as ``datetime.timedelta``.
+        :param cron: Optional cron expression string.
+        :param schedule: Explicit schedule object (e.g. custom implementation).
         :param extra: Arbitrary metadata retained alongside the task definition.
         :returns: A decorator that registers the wrapped callable.
         """
@@ -85,28 +90,31 @@ class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
         name: str | None = None,
         *,
         interval: int | timedelta | None = None,
+        cron: str | None = None,
+        schedule: ScheduleProtocol | None = None,
         extra: dict[str, Any] | None = None,
     ) -> TTaskDecorator:
-        """Register a callable as a background task.
-
-        Parameters
-        ----------
-        name:
-            Optional explicit name under which the task will be stored.
-            When omitted the callable's ``__name__`` attribute is used.
-        interval:
-            An optional scheduling hint. Supplying an integer is treated as a
-            number of seconds and converted to ``datetime.timedelta``.
-        extra:
-            Arbitrary metadata that will be preserved on the resulting
-            :class:`~tlo.task_registry.task_def.TaskDef` instance.
-
-        """
+        """Register a callable as a background task."""
 
         def decorator(func: TTaskFunc) -> TTaskFunc:
             """Store the provided callable and return it unchanged."""
             task_name = name or func.__name__
-            self._register(name=task_name, func=func, interval=interval, extra=extra or {})
+
+            hints_provided = sum(hint is not None for hint in (interval, cron, schedule))
+            if hints_provided > 1:
+                msg = "Only one of interval, cron or schedule hints can be provided"
+                raise TloInvalidRegistrationError(msg)
+
+            if schedule is not None:
+                final_schedule = schedule
+            elif interval is not None:
+                final_schedule = IntervalSchedule(interval)
+            elif cron is not None:
+                final_schedule = CronSchedule(cron)
+            else:
+                final_schedule = None
+
+            self._register(name=task_name, func=func, schedule=final_schedule, extra=extra or {})
             return func
 
         return decorator
@@ -116,7 +124,7 @@ class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
         """Return the task from the registry with the given name.
 
         :param name: The name of the task to retrieve.
-        :raise TaskIsNotRegisteredError: If the task is not registered.
+        :raise TloTaskLookupError: If the task is not registered.
         """
 
     @abstractmethod
@@ -141,8 +149,8 @@ class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
         :type name: str
         :param func: The function to register as the task.
         :type func: TTaskFunc
-        :param interval: The interval to schedule the task.
-        :type interval: timedelta | int | None
+        :param schedule: The schedule object.
+        :type schedule: ScheduleProtocol | None
         :param extra: Extra metadata to store with the task.
         :type extra: dict[str, Any]
         """
@@ -158,6 +166,13 @@ class InMemoryTaskRegistry(AbstractTaskRegistry):
 
     def _register(self, **task_def_kwargs: Unpack[_TaskDefKwargs]) -> None:
         """Register a task with the given name, function, interval, and extra metadata."""
+        name = task_def_kwargs["name"]
+        if name in self._tasks:
+            msg = (
+                f"Task {name!r} is already registered. "
+                f"Use a unique name or avoid duplicate decorators."
+            )
+            raise TloInvalidRegistrationError(msg)
         self._tasks[task_def_kwargs["name"]] = TaskDef(**task_def_kwargs)
 
     def get_task(self, name: str) -> TaskDef:
@@ -167,7 +182,7 @@ class InMemoryTaskRegistry(AbstractTaskRegistry):
                 f"Task {name!r} is not registered. Ensure you don't made a typo "
                 f"or registred specified task into registry"
             )
-            raise TaskIsNotRegisteredError(msg)
+            raise TloTaskLookupError(msg)
         return self._tasks[name]
 
     def list_tasks(self) -> list[TaskDef]:

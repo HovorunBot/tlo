@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from functools import cached_property
-import sqlite3
-from typing import Final
+__all__ = [
+    "ExecutorEnum",
+    "QueueEnum",
+    "SchedulerEnum",
+    "StopBehaviorEnum",
+    "TaskRegistryEnum",
+    "TaskStateStoreEnum",
+]
 
 from tlo.py_compatibility import StrEnum
-
-TLO_DEFAULT_QUEUE_NAME: Final[str] = "default"
 
 
 class TaskRegistryEnum(StrEnum):
@@ -29,27 +31,23 @@ class QueueEnum(StrEnum):
 
     SimpleInMemoryQueue = "SimpleInMemoryQueue"
     MapQueue = "MapQueue"
-    InMemorySqliteQueue = "InMemorySqliteQueue"
 
 
-class WithSqliteInMemory(ABC):
-    """Mixin providing access to SQLite in-memory database for storing data."""
+class SchedulerEnum(StrEnum):
+    """Enum of known schedulers."""
 
-    @cached_property
-    def sqlite_connection(self) -> sqlite3.Connection:
-        """Return a connection to the in-memory SQLite database."""
-        connection = sqlite3.connect(
-            "file::memory:?cache=shared", uri=True, check_same_thread=False
-        )
-        cursor = connection.cursor()
-        cursor.execute("PRAGMA journal_mode=OFF;")  # no journaling needed
-        cursor.execute("PRAGMA synchronous=OFF;")  # skip fsync safety (safe in RAM)
-        cursor.execute("PRAGMA temp_store=MEMORY;")  # temp tables also in RAM
-        cursor.execute("PRAGMA locking_mode=EXCLUSIVE;")  # avoid file locks
-        cursor.execute("PRAGMA cache_size=-10000;")  # 10 MB cache (negative = KB units)
-        cursor.close()
-        return connection
+    SimpleScheduler = "SimpleScheduler"
 
-    @abstractmethod
-    def _init_schema(self) -> None:
-        """Initialize the schema in the in-memory SQLite database for a required data object."""
+
+class ExecutorEnum(StrEnum):
+    """Enum of known executors."""
+
+    LocalExecutor = "LocalExecutor"
+
+
+class StopBehaviorEnum(StrEnum):
+    """Enum describing what to do with queued tasks when stopping."""
+
+    Drain = "Drain"
+    Cancel = "Cancel"
+    Ignore = "Ignore"
