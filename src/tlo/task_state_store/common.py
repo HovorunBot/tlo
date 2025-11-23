@@ -2,9 +2,9 @@
 
 import dataclasses
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
-from tlo.py_compatibility import StrEnum
 from tlo.tlo_types import FuncName, TaskId
 
 

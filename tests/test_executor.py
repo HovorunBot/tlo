@@ -1,6 +1,6 @@
 """Tests for the executor behaviour and task state updates."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import NoReturn, cast
 
 import pytest
@@ -29,14 +29,10 @@ def context() -> tuple[InMemoryTaskRegistry, InMemoryTaskStateStore, LocalExecut
     registry = cast("InMemoryTaskRegistry", initialize_task_registry(settings))
     queue = initialize_queue(settings)
     state_store = cast("InMemoryTaskStateStore", initialize_task_state_store(settings))
-    scheduler = initialize_scheduler(
-        settings, registry=registry, queue=queue, state_store=state_store
-    )
+    scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
     executor = cast(
         "LocalExecutor",
-        initialize_executor(
-            settings, registry=registry, state_store=state_store, queue=queue, scheduler=scheduler
-        ),
+        initialize_executor(settings, registry=registry, state_store=state_store, queue=queue, scheduler=scheduler),
     )
     return registry, state_store, executor
 
@@ -149,7 +145,7 @@ def test_stop_cancel_pending_removes_future_eta(
     def noop() -> None:
         return None
 
-    future = datetime.now(timezone.utc) + timedelta(hours=1)
+    future = datetime.now(UTC) + timedelta(hours=1)
     qt_future = QueuedTask(id="future", task_name="noop", queue_name="default", eta=future)
     _seed_record(state_store, qt_future)
     executor.queue.enqueue(qt_future)
@@ -239,10 +235,8 @@ def test_stop_drain_pending_cancels_future_tasks(
     def noop() -> None:
         return None
 
-    future_eta = datetime.now(timezone.utc) + timedelta(hours=1)
-    future_task = QueuedTask(
-        id="future-drain", task_name="noop", queue_name="default", eta=future_eta
-    )
+    future_eta = datetime.now(UTC) + timedelta(hours=1)
+    future_task = QueuedTask(id="future-drain", task_name="noop", queue_name="default", eta=future_eta)
     _seed_record(state_store, future_task)
     executor.queue.enqueue(future_task)
 

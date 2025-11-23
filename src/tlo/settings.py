@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
-from typing import Any, TypedDict
-
-from typing_extensions import NotRequired, Unpack
+from typing import Any, NotRequired, TypedDict, Unpack
 
 from tlo.common import (
     ExecutorEnum,

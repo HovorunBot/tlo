@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
 from tlo.errors import TloConfigError
@@ -12,7 +12,6 @@ from tlo.utils.cron import parse_cron
 if TYPE_CHECKING:
     from tlo.tlo_types import FuncName, TTaskFunc
 
-UTC = timezone.utc
 
 DECEMBER: Final[int] = 12
 ALL_DAYS_OF_MONTH: Final[tuple[int, ...]] = tuple(range(1, 32))
@@ -56,9 +55,7 @@ class CronSchedule(ScheduleProtocol):
             if current.month not in self.schedule.month:
                 # Jump to next month
                 if current.month == DECEMBER:
-                    current = current.replace(
-                        year=current.year + 1, month=1, day=1, hour=0, minute=0
-                    )
+                    current = current.replace(year=current.year + 1, month=1, day=1, hour=0, minute=0)
                 else:
                     current = current.replace(month=current.month + 1, day=1, hour=0, minute=0)
                 continue
@@ -101,9 +98,7 @@ class CronSchedule(ScheduleProtocol):
 
             return current
 
-        msg = (
-            f"Could not find next run time for cron expression {self.expression!r} within 10 years."
-        )
+        msg = f"Could not find next run time for cron expression {self.expression!r} within 10 years."
         raise TloConfigError(msg)
 
 

@@ -9,9 +9,8 @@ authors = [
 maintainers = [
     { name = "TwilightSparkle42", email = "jaden.corr42@gmail.com" }
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
-    "backports-strenum>=1.3.1; python_version < \"3.11\"",
     "typing-extensions>=4.15.0",
 ]
 license = { file = "LICENSE" }
@@ -28,9 +27,6 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -56,7 +52,7 @@ test = [
 
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 strict = true
 namespace_packages = true
 show_error_codes = true
@@ -69,8 +65,8 @@ disallow_untyped_defs = false
 disallow_untyped_calls = false
 
 [tool.ruff]
-target-version = "py310"
-line-length = 100
+target-version = "py312"
+line-length = 120
 # Enable all rule categories, then selectively ignore ones you truly don't want later
 lint.select = ["ALL"]
 # Some rules are noisy or overlap with MyPy / style preferences

@@ -20,9 +20,7 @@ def test_duplicate_registration_raises() -> None:
 
     with pytest.raises(
         TloInvalidRegistrationError,
-        match=re.escape(
-            "Task 'task' is already registered. Use a unique name or avoid duplicate decorators."
-        ),
+        match=re.escape("Task 'task' is already registered. Use a unique name or avoid duplicate decorators."),
     ):
 
         @registry.register(name="task")

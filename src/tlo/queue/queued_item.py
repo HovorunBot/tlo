@@ -1,7 +1,7 @@
 """Data object and functionality related to queued task specification."""
 
 import dataclasses
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 import uuid
 
@@ -29,11 +29,11 @@ class QueuedTask:
     id: TaskId = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
     args: tuple[Any, ...] = dataclasses.field(default_factory=tuple)
     kwargs: dict[str, Any] = dataclasses.field(default_factory=dict)
-    enqueued_at: datetime = dataclasses.field(default_factory=lambda: datetime.now(timezone.utc))
+    enqueued_at: datetime = dataclasses.field(default_factory=lambda: datetime.now(UTC))
     eta: datetime | int | float | None = None
     exclusive: bool = False
 
     def __post_init__(self) -> None:
         """Normalise ETA values provided as integers to ``datetime``."""
         if isinstance(self.eta, (int, float)):
-            self.eta = datetime.fromtimestamp(self.eta, timezone.utc)
+            self.eta = datetime.fromtimestamp(self.eta, UTC)

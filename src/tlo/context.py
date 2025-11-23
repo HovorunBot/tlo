@@ -1,9 +1,8 @@
 """Initialize runtime services defined by :class:`~tlo.settings.TloSettings`."""
 
+from enum import StrEnum
 import importlib
-from typing import Any, cast
-
-from typing_extensions import Unpack, assert_never
+from typing import Any, Unpack, assert_never
 
 from tlo.common import (
     ExecutorEnum,
@@ -25,7 +24,6 @@ from tlo.task_state_store.state_store import (
     KNOWN_TASK_STATE_STORES,
     TaskStateStoreProtocol,
 )
-from tlo.tlo_types import TImplementation, TStrEnum
 
 
 def initialize_settings(**settings: Unpack[TloSettingsKwargs]) -> TloSettings:
@@ -84,13 +82,13 @@ def initialize_scheduler(
     )
 
 
-def initialize_executor(
-    settings: TloSettings,
-    *,
-    registry: TaskRegistryProtocol,
-    state_store: TaskStateStoreProtocol,
-    queue: QueueProtocol,
-    scheduler: SchedulerProtocol,
+def initialize_executor[
+    TRegistry: TaskRegistryProtocol,
+    TStateStore: TaskStateStoreProtocol,
+    TQueue: QueueProtocol,
+    TScheduler: SchedulerProtocol,
+](
+    settings: TloSettings, *, registry: TRegistry, state_store: TStateStore, queue: TQueue, scheduler: TScheduler
 ) -> ExecutorProtocol:
     """Build the executor declared in settings."""
     return _initialize(
@@ -106,7 +104,7 @@ def initialize_executor(
     )
 
 
-def _unregistered_known_type(type_: TStrEnum) -> AssertionError:
+def _unregistered_known_type[TStrEnum: StrEnum](type_: TStrEnum) -> AssertionError:
     """Return an error when a known enum value lacks a registered implementation."""
     msg = (
         f"Found unregistered type: {type_!r}. "
@@ -116,7 +114,7 @@ def _unregistered_known_type(type_: TStrEnum) -> AssertionError:
     return AssertionError(msg)
 
 
-def _invalid_specified_type(py_path: str, expected_type: type[TImplementation]) -> TloConfigError:
+def _invalid_specified_type[TImplementation](py_path: str, expected_type: type[TImplementation]) -> TloConfigError:
     """Return an error when importing a dotted path yields the wrong type."""
     msg = (
         f"Object specified by {py_path!r} is not an instance of {expected_type!r}. "
@@ -125,9 +123,7 @@ def _invalid_specified_type(py_path: str, expected_type: type[TImplementation]) 
     return TloConfigError(msg)
 
 
-# TODO: as we drop support for Python 3.10 and 3.11, we can implement this function as generic
-# with new generic syntax
-def _initialize(
+def _initialize[TStrEnum: StrEnum, TImplementation](
     settings_value: TStrEnum | str,
     impl_registry: dict[TStrEnum, type[TImplementation]],
     expected_type: type[TImplementation],
@@ -157,7 +153,7 @@ def _initialize(
             raise assert_never(settings_value)
 
 
-def _initialize_by_py_path(
+def _initialize_by_py_path[TImplementation](
     py_path: str, expected_type: type[TImplementation], **kwargs: Any
 ) -> TImplementation:
     """Resolve a dotted Python path into an instantiated object.
@@ -172,7 +168,7 @@ def _initialize_by_py_path(
     """
     module, klass = py_path.rsplit(".", 1)
     module_obj = importlib.import_module(module)
-    result = cast("TImplementation", getattr(module_obj, klass)(**kwargs))
+    result = getattr(module_obj, klass)(**kwargs)
     if not isinstance(result, expected_type):
         raise _invalid_specified_type(py_path, expected_type)
     return result

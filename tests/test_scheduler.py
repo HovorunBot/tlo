@@ -1,6 +1,6 @@
 """Unit tests for scheduler logic and task enqueuing behaviour."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 import pytest
@@ -21,8 +21,6 @@ from tlo.task_registry.task_def import IntervalSchedule, ScheduleProtocol
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 from tlo.task_state_store.state_store import InMemoryTaskStateStore
 
-UTC = timezone.utc
-
 
 def make_scheduler(
     *, panic_mode: bool = False
@@ -38,9 +36,7 @@ def make_scheduler(
     registry = initialize_task_registry(settings)
     queue = initialize_queue(settings)
     state_store = initialize_task_state_store(settings)
-    scheduler = initialize_scheduler(
-        settings, registry=registry, queue=queue, state_store=state_store
-    )
+    scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
     return (
         cast("SimpleScheduler", scheduler),
         cast("InMemoryTaskRegistry", registry),

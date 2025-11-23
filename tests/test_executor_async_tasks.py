@@ -22,9 +22,7 @@ def test_local_executor_runs_async_tasks() -> None:
     registry = initialize_task_registry(settings)
     state_store = initialize_task_state_store(settings)
     queue = initialize_queue(settings)
-    scheduler = initialize_scheduler(
-        settings, registry=registry, queue=queue, state_store=state_store
-    )
+    scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
     executor = initialize_executor(
         settings, registry=registry, state_store=state_store, queue=queue, scheduler=scheduler
     )

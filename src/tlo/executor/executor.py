@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import inspect
 import time
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar, runtime_checkable
-
-from typing_extensions import assert_never
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar, assert_never, runtime_checkable
 
 from tlo.common import ExecutorEnum, StopBehaviorEnum
 from tlo.errors import TloQueueEmptyError
@@ -124,20 +122,20 @@ class AbstractExecutor(ExecutorProtocol, ABC):
         return self.state_store.get(task.id)
 
     def _mark_running(self, record: TaskStateRecord) -> None:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         record.started_at = record.started_at or now
         record.status = TaskStatus.Running
         self.state_store.update(record)
 
     def _mark_succeeded(self, record: TaskStateRecord, result: object) -> None:
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         record.finished_at = finished_at
         record.status = TaskStatus.Succeeded
         record.result = result
         self.state_store.update(record)
 
     def _mark_failed(self, record: TaskStateRecord, exc: Exception) -> None:
-        finished_at = datetime.now(timezone.utc)
+        finished_at = datetime.now(UTC)
         record.finished_at = finished_at
         record.status = TaskStatus.Failed
         record.result = str(exc)
@@ -240,7 +238,7 @@ class LocalExecutor(AbstractExecutor):
                     continue
 
                 record = self._get_record(task)
-                finished_at = datetime.now(timezone.utc)
+                finished_at = datetime.now(UTC)
                 record.finished_at = finished_at
                 record.status = TaskStatus.Cancelled
                 self.state_store.update(record)

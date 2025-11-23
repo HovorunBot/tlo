@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from tlo.common import QueueEnum
@@ -164,7 +164,7 @@ class SimpleInMemoryQueue(AbstractQueue):
         queue_name = queue_name or self._settings.default_queue
 
         queued_tasks = (qt for qt in self._queue if qt.queue_name == queue_name)
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for qt in queued_tasks:
             if qt.eta is None:
                 return qt
@@ -233,7 +233,7 @@ class MapQueue(AbstractQueue):
         """Return and remove the next eligible task for the requested queue."""
         queue_name = queue_name or self._settings.default_queue
         queue = self._queue[queue_name]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for _ in range(len(queue)):
             qt = queue[0]
             if qt.eta is None or qt.eta <= now:  # type: ignore[operator]
@@ -247,7 +247,7 @@ class MapQueue(AbstractQueue):
         queue_name = queue_name or self._settings.default_queue
 
         queue = self._queue[queue_name]
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         for _ in range(len(queue)):
             qt = queue[0]
             if qt.eta is None or qt.eta <= now:  # type: ignore[operator]

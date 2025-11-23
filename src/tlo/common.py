@@ -11,7 +11,7 @@ __all__ = [
     "TaskStateStoreEnum",
 ]
 
-from tlo.py_compatibility import StrEnum
+from enum import StrEnum
 
 
 class TaskRegistryEnum(StrEnum):

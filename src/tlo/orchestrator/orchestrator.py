@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
-
-from typing_extensions import Unpack
+from typing import TYPE_CHECKING, Any, Unpack
 
 from tlo.context import (
     initialize_executor,
@@ -87,9 +85,7 @@ class Tlo:
         if kwargs is None:
             kwargs = {}
 
-        qt = QueuedTask(
-            task_name=name, args=args, kwargs=kwargs, queue_name=self._settings.default_queue
-        )
+        qt = QueuedTask(task_name=name, args=args, kwargs=kwargs, queue_name=self._settings.default_queue)
         task_record = TaskStateRecord(
             id=qt.id,
             name=qt.task_name,

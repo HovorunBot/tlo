@@ -82,12 +82,8 @@ def parse_cron(expression: str) -> CronSchedule:
             minute=_parse_expression(minutes, FIELD_RANGES["minutes"]),
             hour=_parse_expression(hours, FIELD_RANGES["hours"]),
             day_of_month=_parse_expression(day_of_month, FIELD_RANGES["day_of_month"]),
-            month=_parse_expression(
-                month, FIELD_RANGES["month"], transform_map=MONTH_NAME_TO_INDEX
-            ),
-            day_of_week=_parse_expression(
-                day_of_week, FIELD_RANGES["day_of_week"], transform_map=DAY_NAME_TO_INDEX
-            ),
+            month=_parse_expression(month, FIELD_RANGES["month"], transform_map=MONTH_NAME_TO_INDEX),
+            day_of_week=_parse_expression(day_of_week, FIELD_RANGES["day_of_week"], transform_map=DAY_NAME_TO_INDEX),
         )
     except ValueError as exc:
         raise _invalid_cron_expression(expression) from exc
@@ -109,9 +105,7 @@ def _parse_expression(
     return tuple(sorted(result))
 
 
-def _parse_part(
-    part: str, allowed: tuple[int, ...], transform_map: dict[str, int] | None = None
-) -> tuple[int, ...]:
+def _parse_part(part: str, allowed: tuple[int, ...], transform_map: dict[str, int] | None = None) -> tuple[int, ...]:
     """Interpret a single cron token."""
     transform_map = transform_map or {}
     value_expr, step_expr = _expr_to_parts(part)
@@ -132,9 +126,7 @@ def _parse_part(
     if value_expr == "*":
         return tuple(range(allowed[0], allowed[-1] + 1, step_expr))
 
-    if "-" in value_expr and (
-        result := _parse_range(value_expr, allowed, step_expr, transform_map)
-    ):
+    if "-" in value_expr and (result := _parse_range(value_expr, allowed, step_expr, transform_map)):
         return result
 
     raise _invalid_cron_expression(part)

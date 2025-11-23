@@ -147,7 +147,5 @@ def test_cron_parser_valid(  # noqa: PLR0913
 )
 def test_cron_parser_invalid(expression: str) -> None:
     """Ensure malformed cron expressions are rejected."""
-    with pytest.raises(
-        ValueError, match=re.escape(f"{expression!r} is not valid cron expression.")
-    ):
+    with pytest.raises(ValueError, match=re.escape(f"{expression!r} is not valid cron expression.")):
         parse_cron(expression)

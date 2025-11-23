@@ -15,7 +15,7 @@ def _record(id_: str = "task-1") -> TaskStateRecord:
     return TaskStateRecord(
         id=id_,
         name="task",
-        created_at=datetime.datetime.now(datetime.timezone.utc),
+        created_at=datetime.datetime.now(datetime.UTC),
         created_by="test",
         status=TaskStatus.Pending,
     )

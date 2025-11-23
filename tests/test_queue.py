@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 import time
 from typing import TYPE_CHECKING
 
@@ -28,9 +28,7 @@ def queue(request: pytest.FixtureRequest) -> QueueProtocol:
     return initialize_queue(settings)
 
 
-def _make_task(
-    task_id: str, *, queue_name: str = "default", eta: datetime | None = None
-) -> QueuedTask:
+def _make_task(task_id: str, *, queue_name: str = "default", eta: datetime | None = None) -> QueuedTask:
     """Create QueuedTask objects with predictable defaults."""
     return QueuedTask(id=task_id, task_name="dummy_task", queue_name=queue_name, eta=eta)
 
@@ -53,7 +51,7 @@ def test_peek_matches_dequeue(queue: QueueProtocol) -> None:
 
 def test_enqueue_respects_eta_order(queue: QueueProtocol) -> None:
     """Verify ETA ordering is respected for dequeue eligibility."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     future_task = _make_task("future", eta=now + timedelta(seconds=30))
     immediate_task = _make_task("immediate")
     due_task = _make_task("due", eta=now - timedelta(seconds=30))
@@ -121,7 +119,7 @@ def test_numeric_eta_is_normalised(queue: QueueProtocol) -> None:
 
 def test_future_task_does_not_block_ready_task(queue: QueueProtocol) -> None:
     """Future ETA tasks should not block later ready tasks in same queue."""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     future = QueuedTask(task_name="future", queue_name="default", eta=now + timedelta(hours=1))
     ready = QueuedTask(task_name="ready", queue_name="default", eta=now - timedelta(minutes=1))
 

@@ -1,10 +1,8 @@
 """Integration-style tests for schedule calculation helpers."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from tlo.task_registry.task_def import CronSchedule, IntervalSchedule
-
-UTC = timezone.utc
 
 
 def test_interval_schedule_next_run() -> None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 import uuid
 
@@ -98,7 +98,7 @@ class SimpleScheduler(AbstractScheduler):
 
     def tick(self) -> None:
         """Check all registered tasks and enqueue them if they are due."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         for task in self.registry.list_tasks():
             if task.schedule is None:

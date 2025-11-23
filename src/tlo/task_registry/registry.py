@@ -19,8 +19,7 @@ from tlo.utils import make_specific_register_func
 
 if TYPE_CHECKING:
     from datetime import timedelta
-
-    from typing_extensions import Unpack
+    from typing import Unpack
 
     from tlo.tlo_types import TTaskDecorator, TTaskFunc
 
@@ -168,10 +167,7 @@ class InMemoryTaskRegistry(AbstractTaskRegistry):
         """Register a task with the given name, function, interval, and extra metadata."""
         name = task_def_kwargs["name"]
         if name in self._tasks:
-            msg = (
-                f"Task {name!r} is already registered. "
-                f"Use a unique name or avoid duplicate decorators."
-            )
+            msg = f"Task {name!r} is already registered. Use a unique name or avoid duplicate decorators."
             raise TloInvalidRegistrationError(msg)
         self._tasks[task_def_kwargs["name"]] = TaskDef(**task_def_kwargs)
 

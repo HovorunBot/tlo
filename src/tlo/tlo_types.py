@@ -1,15 +1,11 @@
 """Collection of generic types and type aliases for TLO application."""
 
-__all__ = ["FuncName", "TImplementation", "TStrEnum", "TTaskDecorator", "TTaskFunc", "TaskId"]
+__all__ = ["FuncName", "TTaskDecorator", "TTaskFunc", "TaskId"]
 
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeAlias, TypeVar
+from typing import Any
 
-from tlo.py_compatibility import StrEnum
-
-TTaskFunc = Callable[..., Any] | Callable[..., Awaitable[Any]]
-TTaskDecorator = Callable[[TTaskFunc], TTaskFunc]
-TStrEnum = TypeVar("TStrEnum", bound=StrEnum)
-TImplementation = TypeVar("TImplementation")
-TaskId: TypeAlias = str
-FuncName: TypeAlias = str
+type TTaskFunc = Callable[..., Any] | Callable[..., Awaitable[Any]]
+type TTaskDecorator = Callable[[TTaskFunc], TTaskFunc]
+type TaskId = str
+type FuncName = str

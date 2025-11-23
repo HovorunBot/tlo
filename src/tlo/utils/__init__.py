@@ -3,11 +3,10 @@
 __all__ = ["make_specific_register_func", "register_implementation"]
 
 from collections.abc import Callable
+from enum import StrEnum
 
-from tlo.tlo_types import TImplementation, TStrEnum
 
-
-def register_implementation(
+def register_implementation[TStrEnum: StrEnum, TImplementation](
     registry: dict[TStrEnum, TImplementation], key: TStrEnum
 ) -> Callable[[TImplementation], TImplementation]:
     """Return a decorator that registers a class under *key* inside *registry*."""
@@ -19,7 +18,7 @@ def register_implementation(
     return wrapper
 
 
-def make_specific_register_func(
+def make_specific_register_func[TStrEnum: StrEnum, TImplementation](
     registry_map: dict[TStrEnum, TImplementation],
 ) -> Callable[[TStrEnum], Callable[[TImplementation], TImplementation]]:
     """Build a helper that mirrors :func:`register_implementation` for a given map."""
