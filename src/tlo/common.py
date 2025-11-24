@@ -4,6 +4,7 @@ from __future__ import annotations
 
 __all__ = [
     "ExecutorEnum",
+    "LockerEnum",
     "QueueEnum",
     "SchedulerEnum",
     "StopBehaviorEnum",
@@ -43,6 +44,12 @@ class ExecutorEnum(StrEnum):
     """Enum of known executors."""
 
     LocalExecutor = "LocalExecutor"
+
+
+class LockerEnum(StrEnum):
+    """Enum of known lockers."""
+
+    InMemoryLocker = "InMemoryLocker"
 
 
 class StopBehaviorEnum(StrEnum):

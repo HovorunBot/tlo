@@ -111,7 +111,7 @@ from tlo.utils.cron import parse_cron
         ),
     ],
 )
-def test_cron_parser_valid(  # noqa: PLR0913
+def test_cron_parser_valid(
     expression: str,
     expected_minute: tuple[int, ...],
     expected_hour: tuple[int, ...],

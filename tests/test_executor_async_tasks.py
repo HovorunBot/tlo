@@ -6,6 +6,7 @@ import asyncio
 
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,
@@ -24,7 +25,12 @@ def test_local_executor_runs_async_tasks() -> None:
     queue = initialize_queue(settings)
     scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
     executor = initialize_executor(
-        settings, registry=registry, state_store=state_store, queue=queue, scheduler=scheduler
+        settings,
+        registry=registry,
+        state_store=state_store,
+        queue=queue,
+        scheduler=scheduler,
+        locker=initialize_locker(settings),
     )
 
     @registry.register()

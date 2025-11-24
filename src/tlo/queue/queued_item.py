@@ -31,7 +31,7 @@ class QueuedTask:
     kwargs: dict[str, Any] = dataclasses.field(default_factory=dict)
     enqueued_at: datetime = dataclasses.field(default_factory=lambda: datetime.now(UTC))
     eta: datetime | int | float | None = None
-    exclusive: bool = False
+    exclusive_key: str | None = None
 
     def __post_init__(self) -> None:
         """Normalise ETA values provided as integers to ``datetime``."""

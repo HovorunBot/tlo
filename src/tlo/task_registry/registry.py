@@ -30,6 +30,7 @@ class _TaskDefKwargs(TypedDict):
     func: TTaskFunc
     schedule: ScheduleProtocol | None
     extra: dict[str, Any]
+    exclusive_template: str | None
 
 
 KNOWN_TASK_REGISTRIES: dict[TaskRegistryEnum, type[TaskRegistryProtocol]] = {}
@@ -52,6 +53,7 @@ class TaskRegistryProtocol(Protocol):
         cron: str | None = None,
         schedule: ScheduleProtocol | None = None,
         extra: dict[str, Any] | None = None,
+        exclusive: str | None = None,
     ) -> TTaskDecorator:
         """Return a decorator that stores the wrapped callable in the registry.
 
@@ -60,6 +62,7 @@ class TaskRegistryProtocol(Protocol):
         :param cron: Optional cron expression string.
         :param schedule: Explicit schedule object (e.g. custom implementation).
         :param extra: Arbitrary metadata retained alongside the task definition.
+        :param exclusive: Optional string template used to compute exclusivity key via task args/kwargs.
         :returns: A decorator that registers the wrapped callable.
         """
 
@@ -93,6 +96,7 @@ class AbstractTaskRegistry(WithLogger, TaskRegistryProtocol, ABC):
         cron: str | None = None,
         schedule: ScheduleProtocol | None = None,
         extra: dict[str, Any] | None = None,
+        exclusive: str | None = None,
     ) -> TTaskDecorator:
         """Register a callable as a background task."""
 
@@ -115,7 +119,13 @@ class AbstractTaskRegistry(WithLogger, TaskRegistryProtocol, ABC):
             else:
                 final_schedule = None
 
-            self._register(name=task_name, func=func, schedule=final_schedule, extra=extra or {})
+            self._register(
+                name=task_name,
+                func=func,
+                schedule=final_schedule,
+                extra=extra or {},
+                exclusive_template=exclusive,
+            )
             return func
 
         return decorator

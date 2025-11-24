@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import inspect
 import time
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar, assert_never, runtime_checkable
@@ -18,6 +18,7 @@ from tlo.utils import make_specific_register_func
 if TYPE_CHECKING:
     from collections.abc import Awaitable
 
+    from tlo.locking import LockerProtocol
     from tlo.queue.queue import QueueProtocol
     from tlo.queue.queued_item import QueuedTask
     from tlo.scheduler.scheduler import SchedulerProtocol
@@ -84,6 +85,7 @@ class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
         state_store: TaskStateStoreProtocol,
         queue: QueueProtocol,
         scheduler: SchedulerProtocol,
+        locker: LockerProtocol,
         settings: TloSettings,
     ) -> None:
         """Initialize the executor."""
@@ -91,6 +93,7 @@ class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
         self.state_store = state_store
         self.queue = queue
         self.scheduler = scheduler
+        self.locker = locker
         self.settings = settings
         self._running = False
 
@@ -183,9 +186,8 @@ class LocalExecutor(AbstractExecutor):
         msg = "LocalExecutor does not support asynchronous execution"
         raise TypeError(msg)
 
-    def execute(self, task: QueuedTask) -> None:
-        """Execute a single queued task and update its state record."""
-        record = self._get_record(task)
+    def _execute_task(self, task: QueuedTask, record: TaskStateRecord) -> None:
+        """Execute task and update state record."""
         self._mark_running(record)
         try:
             self._logger.debug("Executing task %s (%s)", task.task_name, task.id)
@@ -200,6 +202,23 @@ class LocalExecutor(AbstractExecutor):
 
         self._mark_succeeded(record, result)
         self._logger.debug("Finished task %s (%s)", task.task_name, task.id)
+
+    def execute(self, task: QueuedTask) -> None:
+        """Execute a single queued task and update its state record."""
+        record = self._get_record(task)
+        lock_key = task.exclusive_key
+        guard = self.locker.guard(lock_key) if lock_key is not None else None
+        if guard is not None:
+            with guard as acquired:
+                if not acquired:
+                    retry_eta = datetime.now(UTC) + timedelta(seconds=self.settings.tick_interval)
+                    task.eta = retry_eta
+                    self.queue.enqueue(task)
+                    self._logger.debug("Could not acquire lock %s for task %s; requeued", lock_key, task.id)
+                    return
+                self._execute_task(task, record)
+        else:
+            self._execute_task(task, record)
 
     async def execute_async(self, _task: QueuedTask) -> None:
         """Execute a single queued task asynchronously.

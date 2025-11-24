@@ -3,6 +3,7 @@
 from tlo.common import SchedulerEnum
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,
@@ -30,6 +31,7 @@ def test_initialize_defaults() -> None:
         state_store=task_state_store,
         queue=queue,
         scheduler=scheduler,
+        locker=initialize_locker(settings),
     )
 
     assert scheduler is not None
@@ -73,5 +75,6 @@ def test_initialize_executor_directly() -> None:
             queue=initialize_queue(settings),
             state_store=initialize_task_state_store(settings),
         ),
+        locker=initialize_locker(settings),
     )
     assert executor is not None

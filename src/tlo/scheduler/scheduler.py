@@ -132,6 +132,7 @@ class SimpleScheduler(AbstractScheduler):
                     id=str(uuid.uuid4()),
                     task_name=task.name,
                     queue_name=self.queue.default_queue,
+                    exclusive_key=task.render_exclusive_key((), {}),
                 )
                 state_record = TaskStateRecord(
                     id=qt.id,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from string import Formatter
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
 from tlo.errors import TloConfigError
@@ -139,4 +140,16 @@ class TaskDef:
     name: FuncName
     extra: dict[str, Any] = field(default_factory=dict)
     schedule: ScheduleProtocol | None = None
-    exclusive: bool = False
+    exclusive_template: str | None = None
+
+    def render_exclusive_key(self, args: tuple[Any, ...], kwargs: dict[str, Any]) -> str | None:
+        """Return rendered exclusivity key using ``str.format`` with task call args/kwargs."""
+        if self.exclusive_template is None:
+            return None
+
+        formatter = Formatter()
+        try:
+            return formatter.vformat(self.exclusive_template, args, kwargs)
+        except KeyError as exc:
+            msg = f"Missing key {exc!s} required for exclusive template {self.exclusive_template!r}"
+            raise TloConfigError(msg) from exc

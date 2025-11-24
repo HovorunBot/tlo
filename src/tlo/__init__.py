@@ -4,6 +4,7 @@ __all__ = [
     "ExecutorEnum",
     "ExecutorProtocol",
     "InMemoryTaskRegistry",
+    "LockerEnum",
     "QueueEnum",
     "QueueProtocol",
     "SchedulerEnum",
@@ -16,6 +17,7 @@ __all__ = [
     "Tlo",
     "TloSettings",
     "initialize_executor",
+    "initialize_locker",
     "initialize_queue",
     "initialize_scheduler",
     "initialize_settings",
@@ -23,9 +25,18 @@ __all__ = [
     "initialize_task_state_store",
 ]
 
-from tlo.common import ExecutorEnum, QueueEnum, SchedulerEnum, StopBehaviorEnum, TaskRegistryEnum, TaskStateStoreEnum
+from tlo.common import (
+    ExecutorEnum,
+    LockerEnum,
+    QueueEnum,
+    SchedulerEnum,
+    StopBehaviorEnum,
+    TaskRegistryEnum,
+    TaskStateStoreEnum,
+)
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,

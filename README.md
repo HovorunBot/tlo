@@ -29,6 +29,7 @@ keyword arguments, environment variables, and library defaults.
 from tlo.common import TaskRegistryEnum
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,
@@ -40,6 +41,7 @@ settings = initialize_settings(task_registry=TaskRegistryEnum.InMemoryTaskRegist
 task_registry = initialize_task_registry(settings)
 task_state_store = initialize_task_state_store(settings)
 queue = initialize_queue(settings)
+locker = initialize_locker(settings)
 scheduler = initialize_scheduler(settings, registry=task_registry, queue=queue, state_store=task_state_store)
 executor = initialize_executor(
     settings,
@@ -47,6 +49,7 @@ executor = initialize_executor(
     queue=queue,
     scheduler=scheduler,
     state_store=task_state_store,
+    locker=locker,
 )
 
 # Or build a Tlo orchestrator that wires these together for you:
@@ -58,6 +61,57 @@ You can also point to custom implementations by providing a dotted Python path:
 ```python
 settings = initialize_settings(task_state_store="my_app.state.RedisTaskStateStore")
 ```
+
+### Exclusivity and locking
+
+- Register exclusive tasks with a simple format string: `@registry.register(name="send_email", exclusive="{user_id}")`.
+  The template is rendered with task args/kwargs to produce a lock key.
+- A locker implementation (default: in-memory) guards those keys. When a lock is already held, the executor requeues the
+  task with `eta = now + tick_interval` and tries again on the next tick.
+- Swap lockers via `TloSettings.locker`/`TLO_LOCKER` to plug in other strategies (e.g., distributed locks) while keeping
+  the same executor behaviour.
+
+Example: task-level exclusivity (one task per user at a time)
+
+```python
+from tlo.orchestrator import Tlo
+
+orchestrator = Tlo()
+
+@orchestrator.register(name="send_user_digest", exclusive="{user_id}")
+def send_user_digest(*, user_id: str) -> None:
+    ...
+
+# These two calls will share the same lock key "123" and run one after another
+orchestrator.submit_task("send_user_digest", kwargs={"user_id": "123"})
+orchestrator.submit_task("send_user_digest", kwargs={"user_id": "123"})
+```
+
+Example: whole-task exclusivity (only one instance of the task runs at a time)
+
+```python
+from tlo.orchestrator import Tlo
+
+orchestrator = Tlo()
+
+@orchestrator.register(name="rebuild_cache", exclusive="rebuild_cache")
+def rebuild_cache() -> None:
+    ...
+# Any concurrent submission of "rebuild_cache" will reuse the same lock key and serialize execution.
+```
+
+Example: swapping the locker implementation
+
+```python
+from tlo.orchestrator import Tlo
+from my_app.locking import RedisLocker  # your LockerProtocol implementation
+
+orchestrator = Tlo(locker="my_app.locking.RedisLocker")
+```
+
+All locker, registry, queue, scheduler, executor, and state-store implementations can be selected via settings or `TLO_*`
+environment variables (e.g., `TLO_LOCKER`, `TLO_EXECUTOR`, `TLO_QUEUE`, etc.), matching the defaults listed in
+`TloSettings.from_defaults()`.
 
 Environment variables use the `TLO_` prefix and map directly to settings fields:
 

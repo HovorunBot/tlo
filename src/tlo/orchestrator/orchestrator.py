@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Unpack
 
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,
@@ -35,6 +36,7 @@ class Tlo(WithLogger):
         self._task_registry = initialize_task_registry(resolved_settings)
         self._task_state_store = initialize_task_state_store(resolved_settings)
         self._queue = initialize_queue(resolved_settings)
+        self._locker = initialize_locker(resolved_settings)
         self._scheduler = initialize_scheduler(
             resolved_settings,
             registry=self._task_registry,
@@ -47,6 +49,7 @@ class Tlo(WithLogger):
             state_store=self._task_state_store,
             queue=self._queue,
             scheduler=self._scheduler,
+            locker=self._locker,
         )
         self._logger.debug("TLO orchestrator initialised with settings %s", resolved_settings.as_dict())
 
@@ -79,7 +82,7 @@ class Tlo(WithLogger):
         self._logger.debug("Stopping orchestrator cancel=%s", cancel)
         self._executor.stop(cancel=cancel)
 
-    def submit_task(  # noqa: PLR0913
+    def submit_task(
         self,
         name: str,
         args: tuple[Any, ...] = (),
@@ -87,18 +90,25 @@ class Tlo(WithLogger):
         *,
         queue_name: str | None = None,
         eta: datetime | float | None = None,
-        exclusive: bool = False,
     ) -> None:
         """Enqueue a task for immediate execution with optional arguments."""
         if kwargs is None:
             kwargs = {}
+
+        try:
+            task_def = self._task_registry.get_task(name)
+        except Exception as exc:  # noqa: BLE001
+            self._logger.debug("Task %s not registered; submitting without exclusivity (reason=%s)", name, exc)
+            exclusive_key = None
+        else:
+            exclusive_key = task_def.render_exclusive_key(args, kwargs)
 
         self._logger.debug(
             "Submitting task %s to queue %s (eta=%s, exclusive=%s)",
             name,
             queue_name or self._settings.default_queue,
             eta,
-            exclusive,
+            exclusive_key is not None,
         )
         qt = QueuedTask(
             task_name=name,
@@ -106,7 +116,7 @@ class Tlo(WithLogger):
             kwargs=kwargs,
             queue_name=queue_name or self._settings.default_queue,
             eta=eta,
-            exclusive=exclusive,
+            exclusive_key=exclusive_key,
         )
         task_record = TaskStateRecord(
             id=qt.id,

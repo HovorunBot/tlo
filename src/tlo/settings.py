@@ -8,6 +8,7 @@ from typing import Any, NotRequired, TypedDict, Unpack
 
 from tlo.common import (
     ExecutorEnum,
+    LockerEnum,
     QueueEnum,
     SchedulerEnum,
     StopBehaviorEnum,
@@ -26,6 +27,7 @@ class TloSettingsKwargs(TypedDict):
     queue: NotRequired[QueueEnum | str]
     scheduler: NotRequired[SchedulerEnum | str]
     executor: NotRequired[ExecutorEnum | str]
+    locker: NotRequired[LockerEnum | str]
     tick_interval: NotRequired[float]
     default_queue: NotRequired[str]
     stop_behavior: NotRequired[StopBehaviorEnum]
@@ -41,6 +43,7 @@ class TloSettings:
     queue: QueueEnum | str
     scheduler: SchedulerEnum | str
     executor: ExecutorEnum | str
+    locker: LockerEnum | str
     tick_interval: float
     default_queue: str
     stop_behavior: StopBehaviorEnum
@@ -55,6 +58,7 @@ class TloSettings:
             "queue": QueueEnum.MapQueue,
             "scheduler": SchedulerEnum.SimpleScheduler,
             "executor": LocalExecutor.get_name(),
+            "locker": LockerEnum.InMemoryLocker,
             "tick_interval": 1.0,
             "default_queue": "default",
             "stop_behavior": StopBehaviorEnum.Drain,
@@ -92,6 +96,7 @@ class TloSettings:
             "queue": lambda v: _enum_or_path(v, QueueEnum),
             "scheduler": lambda v: _enum_or_path(v, SchedulerEnum),
             "executor": lambda v: _enum_or_path(v, ExecutorEnum),
+            "locker": lambda v: _enum_or_path(v, LockerEnum),
             "tick_interval": _to_float,
             "stop_behavior": lambda v: StopBehaviorEnum(v),
             "panic_mode": _to_bool,

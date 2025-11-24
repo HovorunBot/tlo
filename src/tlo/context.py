@@ -6,6 +6,7 @@ from typing import Any, Unpack, assert_never
 
 from tlo.common import (
     ExecutorEnum,
+    LockerEnum,
     QueueEnum,
     SchedulerEnum,
     TaskRegistryEnum,
@@ -13,6 +14,7 @@ from tlo.common import (
 )
 from tlo.errors import TloConfigError
 from tlo.executor.executor import KNOWN_EXECUTORS, ExecutorProtocol
+from tlo.locking.locker import KNOWN_LOCKERS, LockerProtocol
 from tlo.queue.queue import KNOWN_QUEUES, QueueProtocol
 from tlo.scheduler.scheduler import KNOWN_SCHEDULERS, SchedulerProtocol
 from tlo.settings import TloSettings, TloSettingsKwargs
@@ -88,7 +90,13 @@ def initialize_executor[
     TQueue: QueueProtocol,
     TScheduler: SchedulerProtocol,
 ](
-    settings: TloSettings, *, registry: TRegistry, state_store: TStateStore, queue: TQueue, scheduler: TScheduler
+    settings: TloSettings,
+    *,
+    registry: TRegistry,
+    state_store: TStateStore,
+    queue: TQueue,
+    scheduler: TScheduler,
+    locker: LockerProtocol,
 ) -> ExecutorProtocol:
     """Build the executor declared in settings."""
     return _initialize(
@@ -100,7 +108,18 @@ def initialize_executor[
         state_store=state_store,
         queue=queue,
         scheduler=scheduler,
+        locker=locker,
         settings=settings,
+    )
+
+
+def initialize_locker(settings: TloSettings) -> LockerProtocol:
+    """Build the locker declared in settings."""
+    return _initialize(
+        settings.locker,
+        KNOWN_LOCKERS,
+        LockerProtocol,  # type: ignore[type-abstract]
+        LockerEnum,
     )
 
 

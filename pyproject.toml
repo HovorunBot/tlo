@@ -109,6 +109,9 @@ banned-from = ["tlo"]
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
 
+[tool.ruff.lint.pylint]
+max-args = 12
+
 [tool.uv]
 package = true
 default-groups = "all"

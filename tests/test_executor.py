@@ -8,6 +8,7 @@ import pytest
 from tlo.common import StopBehaviorEnum, TaskRegistryEnum
 from tlo.context import (
     initialize_executor,
+    initialize_locker,
     initialize_queue,
     initialize_scheduler,
     initialize_settings,
@@ -16,6 +17,7 @@ from tlo.context import (
 )
 from tlo.errors import TloQueueEmptyError
 from tlo.executor.executor import LocalExecutor
+from tlo.locking import InMemoryLocker
 from tlo.queue.queued_item import QueuedTask
 from tlo.task_registry.registry import InMemoryTaskRegistry
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
@@ -30,9 +32,17 @@ def context() -> tuple[InMemoryTaskRegistry, InMemoryTaskStateStore, LocalExecut
     queue = initialize_queue(settings)
     state_store = cast("InMemoryTaskStateStore", initialize_task_state_store(settings))
     scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
+    locker = initialize_locker(settings)
     executor = cast(
         "LocalExecutor",
-        initialize_executor(settings, registry=registry, state_store=state_store, queue=queue, scheduler=scheduler),
+        initialize_executor(
+            settings,
+            registry=registry,
+            state_store=state_store,
+            queue=queue,
+            scheduler=scheduler,
+            locker=locker,
+        ),
     )
     return registry, state_store, executor
 
@@ -109,6 +119,40 @@ def test_execute_handles_missing_task(
     assert updated is not None
     assert updated.status == TaskStatus.Failed
     assert "is not registered" in str(updated.result)
+
+
+def test_execute_requeues_when_lock_contended() -> None:
+    """Executor should requeue exclusive tasks when lock cannot be acquired."""
+    settings = initialize_settings()
+    registry = cast("InMemoryTaskRegistry", initialize_task_registry(settings))
+    queue = initialize_queue(settings)
+    state_store = cast("InMemoryTaskStateStore", initialize_task_state_store(settings))
+    scheduler = initialize_scheduler(settings, registry=registry, queue=queue, state_store=state_store)
+    locker = InMemoryLocker()
+    executor = LocalExecutor(
+        registry=registry,
+        state_store=state_store,
+        queue=queue,
+        scheduler=scheduler,
+        locker=locker,
+        settings=settings,
+    )
+
+    @registry.register(name="exclusive_task", exclusive="entity-{entity_id}")
+    def sample_task(*_: object, **__: object) -> str:
+        return "ok"
+
+    qt = QueuedTask(task_name="exclusive_task", queue_name=settings.default_queue, exclusive_key="entity-1")
+    _seed_record(state_store, qt)
+    assert locker.acquire("entity-1")
+
+    executor.execute(qt)
+
+    record = state_store.get(qt.id)
+    assert record.status == TaskStatus.Pending
+    assert queue.total_tasks() == 1
+    assert locker.is_locked("entity-1")
+    assert qt.eta is not None
 
 
 def test_stop_cancel_pending_marks_cancelled(
