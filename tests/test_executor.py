@@ -245,3 +245,32 @@ def test_stop_drain_pending_cancels_future_tasks(
     assert len(executor.queue) == 0
     record = state_store.get(future_task.id)
     assert record.status == TaskStatus.Cancelled
+
+
+def test_drain_queue_processes_multiple_queues(
+    context: tuple[InMemoryTaskRegistry, InMemoryTaskStateStore, LocalExecutor],
+) -> None:
+    """Drain should process tasks across all queues, not just default."""
+    registry, state_store, executor = context
+    executor.settings.stop_behavior = StopBehaviorEnum.Drain
+    results: list[str] = []
+
+    @registry.register(name="task_a")
+    def task_a() -> str:
+        results.append("A")
+        return "A"
+
+    @registry.register(name="task_b")
+    def task_b() -> str:
+        results.append("B")
+        return "B"
+
+    qt_a = QueuedTask(id="qa", task_name="task_a", queue_name="queue-a")
+    qt_b = QueuedTask(id="qb", task_name="task_b", queue_name="queue-b")
+    for qt in (qt_a, qt_b):
+        _seed_record(state_store, qt)
+        executor.queue.enqueue(qt)
+
+    executor.stop()
+
+    assert set(results) == {"A", "B"}

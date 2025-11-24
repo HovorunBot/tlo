@@ -101,6 +101,11 @@ combine-as-imports = true
 force-sort-within-sections = true
 section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
 
+[tool.ruff.lint.flake8-import-conventions]
+# Forbid: from tlo import X
+# Allow:  from tlo.queue import Y
+banned-from = ["tlo"]
+
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
 

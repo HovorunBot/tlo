@@ -16,11 +16,11 @@ from tlo.queue.queued_item import QueuedTask
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 
 if TYPE_CHECKING:
-    from datetime import timedelta
+    from datetime import datetime, timedelta
 
     from tlo.settings import TloSettingsKwargs
     from tlo.task_registry.task_def import ScheduleProtocol
-    from tlo.tlo_types import TTaskDecorator
+    from tlo.tlo_types import TaskId, TTaskDecorator
 
 
 class Tlo:
@@ -75,17 +75,28 @@ class Tlo:
         """Stop task processing and optionally clear queued tasks."""
         self._executor.stop(cancel=cancel)
 
-    def submit_task(
+    def submit_task(  # noqa: PLR0913
         self,
         name: str,
         args: tuple[Any, ...] = (),
         kwargs: dict[str, Any] | None = None,
+        *,
+        queue_name: str | None = None,
+        eta: datetime | float | None = None,
+        exclusive: bool = False,
     ) -> None:
         """Enqueue a task for immediate execution with optional arguments."""
         if kwargs is None:
             kwargs = {}
 
-        qt = QueuedTask(task_name=name, args=args, kwargs=kwargs, queue_name=self._settings.default_queue)
+        qt = QueuedTask(
+            task_name=name,
+            args=args,
+            kwargs=kwargs,
+            queue_name=queue_name or self._settings.default_queue,
+            eta=eta,
+            exclusive=exclusive,
+        )
         task_record = TaskStateRecord(
             id=qt.id,
             name=qt.task_name,
@@ -95,6 +106,22 @@ class Tlo:
         )
         self._task_state_store.create(task_record)
         self._queue.enqueue(qt)
+
+    def peek(self, queue_name: str | None = None) -> QueuedTask | None:
+        """Return the next eligible task without removing it from the queue."""
+        return self._queue.peek(queue_name)
+
+    def bulk_peek(self, queue_name: str | None = None, *, limit: int | None = None) -> list[QueuedTask]:
+        """Return up to *limit* eligible tasks without removing them."""
+        return self._queue.bulk_peek(queue_name, limit=limit)
+
+    def reschedule_task(self, task_id: TaskId, *, eta: datetime | float | None) -> None:
+        """Update ETA for a queued task."""
+        self._queue.reschedule(task_id, eta=eta)
+
+    def move_task(self, task_id: TaskId, *, queue_name: str) -> None:
+        """Move a queued task to another queue."""
+        self._queue.move(task_id, queue_name=queue_name)
 
     def run(self) -> None:
         """Run the executor loop synchronously."""

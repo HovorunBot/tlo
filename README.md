@@ -66,6 +66,47 @@ Environment variables use the `TLO_` prefix and map directly to settings fields:
 | `TLO_TASK_REGISTRY`    | Dotted Python path or `TaskRegistryEnum` value for the task registry.      | `InMemoryTaskRegistry`   |
 | `TLO_TASK_STATE_STORE` | Dotted Python path or `TaskStateStoreEnum` value for the task state store. | `InMemoryTaskStateStore` |
 | `TLO_QUEUE`            | Dotted Python path or `QueueEnum` value for the queue implementation.      | `MapQueue`               |
+| `TLO_TICK_INTERVAL`    | Sleep duration (seconds) between scheduler ticks.                          | `1.0`                    |
+| `TLO_DEFAULT_QUEUE`    | Name of the queue used when none is provided.                              | `default`                |
+| `TLO_STOP_BEHAVIOR`    | Behaviour when stopping (`Drain`, `Cancel`, or `Ignore`).                  | `Drain`                  |
+| `TLO_PANIC_MODE`       | Propagate scheduler errors instead of swallowing them.                     | `False`                  |
+
+### Configuring and overriding settings
+
+You can override defaults via environment variables (above) or by calling `initialize_settings`/`TloSettings.load` with
+keyword arguments. Keyword overrides win over env vars and defaults:
+
+```python
+settings = initialize_settings(
+    queue=QueueEnum.MapQueue,
+    default_queue="priority",
+    tick_interval=0.25,
+)
+```
+
+`TloSettings` is a plain dataclass; you can also call `settings.update(...)` before wiring components if you need to
+derive values programmatically. All settings are consumed at orchestrator startup when dependencies are built; changing
+the dataclass after `Tlo` (or `initialize_*`) has been called will not reconfigure already-constructed instances. To
+change runtime behaviour, stop the orchestrator and recreate it with new settings.
+
+Submitting tasks with custom routing:
+
+```python
+engine = Tlo()
+engine.submit_task(
+    "send_email",
+    args=("user@example.com",),
+    queue_name="notifications",  # use non-default queue
+    eta=time.time() + 60,        # schedule for 1 minute later
+)
+```
+
+### Runtime-mutability
+
+`TloSettings` values are read when components are constructed. The orchestrator and helpers do not watch for changes to
+the dataclass, so treat settings as immutable after you call `Tlo(...)` or any `initialize_*` factory. If you need to
+modify configuration (e.g., switch queues, default queue name, tick interval), stop the orchestrator and build a new
+instance with updated settings.
 
 ### Task State Records
 

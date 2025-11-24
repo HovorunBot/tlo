@@ -1,6 +1,6 @@
 """Tests for the TLO orchestrator and task execution loop."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 import threading
 import time
 
@@ -11,13 +11,45 @@ def test_submit_task_enqueues_real_queue() -> None:
     """submit_task should enqueue task with provided args/kwargs."""
     engine = Tlo(tick_interval=0.01)
 
-    engine.submit_task("test_task", args=(1,), kwargs={"a": 2})
+    engine.submit_task("test_task", args=(1,), kwargs={"a": 2}, queue_name="priority")
 
-    queued = engine._queue.peek()  # noqa: SLF001 - only for tests, direct peeking from queue is not expected API
+    queued = engine.peek("priority")
     assert queued is not None
     assert queued.task_name == "test_task"
     assert queued.args == (1,)
     assert queued.kwargs == {"a": 2}
+    assert queued.queue_name == "priority"
+
+
+def test_reschedule_task_proxy() -> None:
+    """reschedule_task should update ETA via the orchestrator."""
+    engine = Tlo(tick_interval=0.01)
+    engine.submit_task("first")
+    engine.submit_task("second")
+
+    tasks = engine.bulk_peek(limit=2)
+    assert len(tasks) == 2
+
+    first, second = tasks
+    engine.reschedule_task(first.id, eta=datetime.now(UTC) + timedelta(hours=1))
+
+    assert engine.peek() == second
+
+
+def test_move_task_proxy() -> None:
+    """move_task should re-route tasks between queues."""
+    engine = Tlo(tick_interval=0.01)
+    engine.submit_task("to-move")
+
+    task = engine.peek()
+    assert task is not None
+
+    engine.move_task(task.id, queue_name="priority")
+
+    assert engine.peek() is None
+    moved = engine.peek(queue_name="priority")
+    assert moved is not None
+    assert moved.queue_name == "priority"
 
 
 def test_engine_runs_registered_tasks() -> None:

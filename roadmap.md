@@ -1,30 +1,29 @@
 ## 🧭 TLO Development Roadmap
 
-### 🎯 Phase 1 — Core Architecture (MVP)
-Goal: Establish minimal, modular, dependency-light foundation.
+### 🎯 Phase 1 — Core Architecture (MVP) ✅
+Goal: Minimal, modular, dependency-light foundation using in-memory defaults and factory helpers.
 
-**Components**
-- `TaskDef` — dataclass holding callable metadata. *(Implemented in `src/tlo/task_registry/task_def.py` with automatic normalisation of integer intervals into `timedelta` values.)*
-- `InMemoryTaskRegistry` — in-memory registry for task definitions. *(Shipped in `src/tlo/task_registry/registry.py`; exposes the decorator-based API now used in smoke tests.)*
-- `TaskStateStore` — simple persistent store (SQLite or in-memory). *(Covered by `InMemoryTaskStateStore` in `src/tlo/task_state_store/state_store.py`; persistence backends remain future work.)*
-- `Queue` — in-memory FIFO or priority queue for scheduled tasks. *(Delivered in `src/tlo/queue/queue.py` with `SimpleInMemoryQueue`, `MapQueue`, and `InMemorySqliteQueue`, all sharing `QueueProtocol` and validated by `tests/test_queue.py`.)*
-- `Scheduler` — basic interval/cron-like scheduler pushing to queue. *(Pending — will be wired once queue primitives exist.)*
-- `Executor` — executes callable synchronously/async. *(Pending — interface draft still outstanding.)*
-- `Engine` — orchestrator; pulls from queue, delegates to executor, updates state store. *(Pending — blocked by queue/scheduler/executor foundations.)*
+**Components (implemented)**
+- `TaskDef` with interval/cron scheduling helpers (`src/tlo/task_registry/task_def.py`).
+- `InMemoryTaskRegistry` with decorator API (`src/tlo/task_registry/registry.py`).
+- `InMemoryTaskStateStore` (`src/tlo/task_state_store/state_store.py`).
+- Queues: `SimpleInMemoryQueue`, `MapQueue`, plus admin hooks (move/reschedule/bulk peek) in `src/tlo/queue/queue.py`.
+- `SimpleScheduler` for interval/cron ticking (`src/tlo/scheduler/scheduler.py`).
+- `LocalExecutor` (synchronous, round-robin across queues) (`src/tlo/executor/executor.py`).
+- `Tlo` orchestrator with queue routing/peek/admin proxies (`src/tlo/orchestrator/orchestrator.py`).
 
 **Supporting infrastructure**
-- `TloSettings` — runtime configuration holder. *(Available via `src/tlo/settings.py`; loads defaults, environment overrides, and supports runtime updates.)*
-- `TloContext` — runtime configuration container. *(Introduced in `src/tlo/context.py`; composes the registry/state store implementations from `TloSettings` and exposes them for the Engine and other orchestrator elements.)*
+- `TloSettings` (env/kwarg/default merge, typed overrides including `default_queue`) in `src/tlo/settings.py`.
+- Initializer helpers (`initialize_*`) in `src/tlo/context.py` to build registry/state store/queue/scheduler/executor from settings.
 
 **Tech constraints**
-- Python ≥3.10  
-- Dependencies: only `pytest`, `mypy`, `ruff`  
-- All components type-hinted, lint-clean, and unit-tested.
+- Python ≥3.12; deps: `pytest`, `mypy`, `ruff`; code is typed, linted, and tested.
 
 ---
 
-### 🧩 Phase 2 — Abstractions & Extensibility
-Goal: Define clear boundaries for evolution.
+### 🧩 Phase 2 — Abstractions & Extensibility ✅ (interfaces shipped; TaskContext still open)
+Goal: Define clear boundaries for evolution. All core protocols/ABCs are present; remaining work is around per-task
+context ergonomics.
 
 **Introduce interfaces**
 - `AbstractTaskRegistry`
@@ -32,20 +31,20 @@ Goal: Define clear boundaries for evolution.
 - `AbstractScheduler`
 - `AbstractExecutor`
 - `AbstractTaskStateStore`
-- *(Registry and state store abstractions now live in `src/tlo/task_registry/registry.py` and `src/tlo/task_state_store/state_store.py`. `AbstractQueue` and `QueueProtocol` ship in `src/tlo/queue/queue.py`; Scheduler/Executor interfaces remain to be defined.)*
+- *(All abstractions now ship: registries/state stores in `src/tlo/task_registry/registry.py` and `src/tlo/task_state_store/state_store.py`; queues in `src/tlo/queue/queue.py`; scheduler and executor protocols in their respective modules.)*
 
-**Keep concrete implementations**
+**Concrete implementations in tree**
 - `InMemoryTaskRegistry`
-- `InMemoryQueue`
+- `MapQueue` / `SimpleInMemoryQueue`
 - `SimpleScheduler`
 - `LocalExecutor`
-- `SqliteStateStore`
+- `InMemoryTaskStateStore`
 
 **Other refinements**
-- Add `TaskId` type (UUID or namespaced str).
-- Define lightweight `TaskContext` (logging, cancellation, progress).
+- `TaskId` alias exists in `tlo_types`.
+- Define lightweight `TaskContext` (logging, cancellation, progress). *(open)*
 - Engine remains single implementation using interfaces.
-- *(Enums for registry and state store locations are defined in `src/tlo/common.py`. `TloContext` now represents the injected configuration for the orchestrator, while the planned `TaskContext` will focus on per-execution concerns once introduced.)*
+- Enforce import hygiene and typed settings surface. *(ongoing)*
 
 ---
 
@@ -59,8 +58,8 @@ Goal: Make TLO usable both as library and standalone runner.
   - `tlo list-tasks`
 - Provide reusable entrypoints for embedding:
   ```python
-  from tlo import Engine, DEFAULT_REGISTRY
-  engine = Engine(DEFAULT_REGISTRY, ...)
+  from tlo import Tlo
+  engine = Tlo()
   engine.run()
   ```
   
@@ -71,7 +70,9 @@ Goal: Add minimal reliability and visibility.
 - Persistent queue and state store (SQLite backend).
 - Task result history with timestamps & duration.
 - Simple log hooks or callback interface:
-  - `on_task_started`, `on_task_failed`, etc.
+  - `on_task_started`, `on_task_failed`, etc. *(open: lifecycle/telemetry protocol)*
+- Task state store queries (filter/list/search) for inspection UIs. *(open)*
+- Exclusive task execution contract (registration flag + executor enforcement). *(open)*
 - Optional in-memory metrics (executed count, avg duration).
 
 ---

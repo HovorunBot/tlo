@@ -61,6 +61,15 @@ class QueueProtocol(Protocol):
     def remove(self, task_id: TaskId) -> None:
         """Remove a task from the queue without actually executing it."""
 
+    def reschedule(self, task_id: TaskId, *, eta: datetime | float | None) -> None:
+        """Update the ETA for a queued task."""
+
+    def move(self, task_id: TaskId, *, queue_name: str) -> None:
+        """Move a task to a different queue."""
+
+    def bulk_peek(self, queue_name: str | None = None, *, limit: int | None = None) -> list[QueuedTask]:
+        """Return up to *limit* eligible tasks without removing them."""
+
     def __len__(self) -> int:
         """Return the number of tasks in any provided queue."""
 
@@ -102,6 +111,18 @@ class AbstractQueue(QueueProtocol, ABC):
     @abstractmethod
     def remove(self, task_id: TaskId) -> None:
         """Remove a task from the queue without actually executing it."""
+
+    @abstractmethod
+    def reschedule(self, task_id: TaskId, *, eta: datetime | float | None) -> None:
+        """Update the ETA for a queued task."""
+
+    @abstractmethod
+    def move(self, task_id: TaskId, *, queue_name: str) -> None:
+        """Move a task to a different queue."""
+
+    @abstractmethod
+    def bulk_peek(self, queue_name: str | None = None, *, limit: int | None = None) -> list[QueuedTask]:
+        """Return up to *limit* eligible tasks without removing them."""
 
     @abstractmethod
     def __len__(self) -> int:
@@ -188,6 +209,41 @@ class SimpleInMemoryQueue(AbstractQueue):
                 return
         msg = f"No task found for id {task_id!r}"
         raise TloQueueEmptyError(msg)
+
+    def reschedule(self, task_id: TaskId, *, eta: datetime | float | None) -> None:
+        """Update ETA for a queued task and maintain ordering."""
+        for qt in self._queue:
+            if qt.id != task_id:
+                continue
+            qt.eta = datetime.fromtimestamp(eta, UTC) if isinstance(eta, (int, float)) else eta
+            self._queue.sort(key=_queue_sort_key)
+            return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
+
+    def move(self, task_id: TaskId, *, queue_name: str) -> None:
+        """Move a queued task to another queue and reorder."""
+        for qt in self._queue:
+            if qt.id != task_id:
+                continue
+            qt.queue_name = queue_name
+            self._queue.sort(key=_queue_sort_key)
+            return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
+
+    def bulk_peek(self, queue_name: str | None = None, *, limit: int | None = None) -> list[QueuedTask]:
+        """Return up to *limit* eligible tasks without removing them."""
+        queue_name = queue_name or self._settings.default_queue
+        now = datetime.now(UTC)
+        eligible: list[QueuedTask] = []
+        for qt in (qt for qt in self._queue if qt.queue_name == queue_name):
+            if qt.eta is not None and qt.eta > now:  # type: ignore[operator]
+                continue
+            eligible.append(qt)
+            if limit is not None and len(eligible) >= limit:
+                break
+        return eligible
 
     def __len__(self) -> int:
         """Return the number of tasks in any provided queue."""
@@ -278,6 +334,48 @@ class MapQueue(AbstractQueue):
                 return
         msg = f"No task found for id {task_id!r}"
         raise TloQueueEmptyError(msg)
+
+    def reschedule(self, task_id: TaskId, *, eta: datetime | float | None) -> None:
+        """Update the ETA for a queued task and reorder within its queue."""
+        for queue_name, queue in self._queue.items():
+            for qt in queue:
+                if qt.id != task_id:
+                    continue
+                qt.eta = datetime.fromtimestamp(eta, UTC) if isinstance(eta, (int, float)) else eta
+                sorted_queue = sorted(queue, key=_queue_sort_key)
+                self._queue[queue_name] = deque(sorted_queue)
+                return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
+
+    def move(self, task_id: TaskId, *, queue_name: str) -> None:
+        """Move a queued task to another queue and maintain ordering."""
+        for source_queue, queue in list(self._queue.items()):
+            for qt in list(queue):
+                if qt.id != task_id:
+                    continue
+                queue.remove(qt)
+                qt.queue_name = queue_name
+                self.enqueue(qt)
+                if not queue:
+                    del self._queue[source_queue]
+                return
+        msg = f"No task found for id {task_id!r}"
+        raise TloQueueEmptyError(msg)
+
+    def bulk_peek(self, queue_name: str | None = None, *, limit: int | None = None) -> list[QueuedTask]:
+        """Return up to *limit* eligible tasks without removing them."""
+        queue_name = queue_name or self._settings.default_queue
+        queue = self._queue[queue_name]
+        now = datetime.now(UTC)
+        eligible: list[QueuedTask] = []
+        for qt in queue:
+            if qt.eta is not None and qt.eta > now:  # type: ignore[operator]
+                continue
+            eligible.append(qt)
+            if limit is not None and len(eligible) >= limit:
+                break
+        return eligible
 
     def __len__(self) -> int:
         """Return a number of tasks stored across all map entries."""

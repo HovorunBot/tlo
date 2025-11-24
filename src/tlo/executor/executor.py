@@ -248,10 +248,22 @@ class LocalExecutor(AbstractExecutor):
                 return
 
     def _drain_queue(self) -> None:
-        """Execute all ready tasks in the queue."""
+        """Execute all ready tasks across available queues."""
         while True:
-            try:
-                task = self.queue.dequeue()
-            except TloQueueEmptyError:
+            queues = self.queue.total_tasks_by_queue()
+            if not queues:
                 return
-            self.execute(task)
+
+            made_progress = False
+            for queue_name, count in list(queues.items()):
+                if count == 0:
+                    continue
+                try:
+                    task = self.queue.dequeue(queue_name)
+                except TloQueueEmptyError:
+                    continue
+                self.execute(task)
+                made_progress = True
+
+            if not made_progress:
+                return

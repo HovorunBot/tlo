@@ -27,6 +27,7 @@ class TloSettingsKwargs(TypedDict):
     scheduler: NotRequired[SchedulerEnum | str]
     executor: NotRequired[ExecutorEnum | str]
     tick_interval: NotRequired[float]
+    default_queue: NotRequired[str]
     stop_behavior: NotRequired[StopBehaviorEnum]
     panic_mode: NotRequired[bool]
 

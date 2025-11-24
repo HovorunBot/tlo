@@ -128,3 +128,45 @@ def test_future_task_does_not_block_ready_task(queue: QueueProtocol) -> None:
 
     dequeued = queue.dequeue()
     assert dequeued.task_name == "ready"
+
+
+def test_reschedule_updates_eta_and_order(queue: QueueProtocol) -> None:
+    """Reschedule should reorder tasks based on new ETA."""
+    now = datetime.now(UTC)
+    ready = QueuedTask(task_name="ready", queue_name="default", eta=now)
+    future = QueuedTask(task_name="future", queue_name="default", eta=now + timedelta(hours=1))
+
+    queue.enqueue(ready)
+    queue.enqueue(future)
+
+    queue.reschedule(future.id, eta=now - timedelta(seconds=5))
+
+    assert queue.peek() == future
+
+
+def test_move_changes_queue(queue: QueueProtocol) -> None:
+    """Move should reassign a task to a different queue."""
+    task = QueuedTask(task_name="to-move", queue_name="default")
+    queue.enqueue(task)
+
+    queue.move(task.id, queue_name="priority")
+
+    counts = queue.total_tasks_by_queue()
+    assert counts.get("default", 0) == 0
+    assert counts.get("priority", 0) == 1
+    assert queue.peek(queue_name="priority") == task
+
+
+def test_bulk_peek_returns_eligible_in_order(queue: QueueProtocol) -> None:
+    """bulk_peek should return ready tasks up to the requested limit."""
+    now = datetime.now(UTC)
+    tasks = [
+        QueuedTask(task_name="a", queue_name="default", eta=now - timedelta(seconds=5)),
+        QueuedTask(task_name="b", queue_name="default", eta=now - timedelta(seconds=4)),
+        QueuedTask(task_name="future", queue_name="default", eta=now + timedelta(minutes=5)),
+    ]
+    for task in tasks:
+        queue.enqueue(task)
+
+    peeked = queue.bulk_peek(limit=2)
+    assert [t.task_name for t in peeked] == ["a", "b"]
