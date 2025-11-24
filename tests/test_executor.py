@@ -121,6 +121,22 @@ def test_execute_handles_missing_task(
     assert "is not registered" in str(updated.result)
 
 
+def test_stop_task_not_supported(
+    context: tuple[InMemoryTaskRegistry, InMemoryTaskStateStore, LocalExecutor],
+) -> None:
+    """LocalExecutor.stop_task should raise TypeError because it cannot interrupt tasks."""
+    _, state_store, executor = context
+    queued_task = QueuedTask(id="123", task_name="some_task", queue_name="default")
+    _seed_record(state_store, queued_task)
+
+    with pytest.raises(TypeError):
+        executor.stop_task("123")
+
+    # State remains unchanged
+    record = state_store.get("123")
+    assert record.status == TaskStatus.Pending
+
+
 def test_execute_requeues_when_lock_contended() -> None:
     """Executor should requeue exclusive tasks when lock cannot be acquired."""
     settings = initialize_settings()

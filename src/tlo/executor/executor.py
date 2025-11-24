@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from tlo.settings import TloSettings
     from tlo.task_registry.registry import TaskRegistryProtocol
     from tlo.task_state_store.state_store import TaskStateStoreProtocol
+    from tlo.tlo_types import TaskId
 
 KNOWN_EXECUTORS: dict[ExecutorEnum, type[ExecutorProtocol]] = {}
 _register = make_specific_register_func(KNOWN_EXECUTORS)
@@ -65,6 +66,12 @@ class ExecutorProtocol(Protocol):
 
     async def execute_async(self, task: QueuedTask) -> None:
         """Execute a single queued task asynchronously."""
+
+    def stop_task(self, task_id: TaskId) -> TaskStateRecord:
+        """Attempt to stop/kill a specific task and return its final state."""
+
+    def get_task_state(self, task_id: TaskId) -> TaskStateRecord:
+        """Return execution state for a specific task."""
 
 
 class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
@@ -112,6 +119,14 @@ class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
     @abstractmethod
     async def execute_async(self, task: QueuedTask) -> None:
         """Execute a single queued task asynchronously."""
+
+    @abstractmethod
+    def stop_task(self, task_id: TaskId) -> TaskStateRecord:
+        """Attempt to stop a running task by id."""
+
+    def get_task_state(self, task_id: TaskId) -> TaskStateRecord:
+        """Return the latest stored state for *task_id*."""
+        return self.state_store.get(task_id)
 
     @classmethod
     def get_name(cls) -> ExecutorEnum:
@@ -226,6 +241,14 @@ class LocalExecutor(AbstractExecutor):
         Not supported by LocalExecutor.
         """
         msg = "LocalExecutor does not support asynchronous execution"
+        raise TypeError(msg)
+
+    def stop_task(self, _task_id: TaskId) -> TaskStateRecord:
+        """LocalExecutor cannot stop a task mid-execution due to synchronous model."""
+        msg = (
+            f"{self.__class__.__name__!r} does not support stop_task functionality as implementation is synchronous "
+            f"and single threaded."
+        )
         raise TypeError(msg)
 
     @property

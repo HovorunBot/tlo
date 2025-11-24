@@ -153,3 +153,11 @@ class Tlo(WithLogger):
         """Run the executor loop asynchronously when supported."""
         self._logger.debug("Starting orchestrator in async mode")
         await self._executor.run_async()
+
+    def stop_task(self, task_id: TaskId) -> TaskStateRecord:
+        """Request that the executor stop/kill an in-flight task if supported."""
+        return self._executor.stop_task(task_id)
+
+    def get_task_state(self, task_id: TaskId) -> TaskStateRecord:
+        """Return the stored state for a specific task."""
+        return self._executor.get_task_state(task_id)

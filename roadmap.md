@@ -21,9 +21,9 @@ Goal: Minimal, modular, dependency-light foundation using in-memory defaults and
 
 ---
 
-### 🧩 Phase 2 — Abstractions & Extensibility ✅ (interfaces shipped; TaskContext still open)
-Goal: Define clear boundaries for evolution. All core protocols/ABCs are present; remaining work is around per-task
-context ergonomics.
+### 🧩 Phase 2 — Abstractions & Extensibility ✅
+Goal: Define clear boundaries for evolution. Core protocols/ABCs are present; per-task context remains intentionally out
+of scope for the synchronous LocalExecutor (cancellation is unsupported beyond TypeError signalling).
 
 **Introduce interfaces**
 - `AbstractTaskRegistry`
@@ -42,9 +42,10 @@ context ergonomics.
 
 **Other refinements**
 - `TaskId` alias exists in `tlo_types`.
-- Define lightweight `TaskContext` (logging, cancellation, progress). *(open)*
+- Executor interface exposes `stop_task` (returns final state; raises TypeError for non-interruptible executors) and
+  `get_task_state` for inspection; LocalExecutor explicitly cannot stop running tasks.
 - Engine remains single implementation using interfaces.
-- Enforce import hygiene and typed settings surface. *(ongoing)*
+- Enforce import hygiene and typed settings surface.
 
 ---
 

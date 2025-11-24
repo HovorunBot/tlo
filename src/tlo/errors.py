@@ -27,3 +27,7 @@ class TloQueueEmptyError(TloError):
 
 class TloTaskStateDoesNotExistError(TloError):
     """Raised when attempting to retrieve a task state that does not exist."""
+
+
+class TloTaskAlreadyFinishedError(TloError):
+    """Raised when attempting to stop or modify a task that has already finished."""
