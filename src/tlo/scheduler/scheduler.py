@@ -9,6 +9,7 @@ import uuid
 
 from tlo.common import SchedulerEnum
 from tlo.errors import TloConfigError
+from tlo.logging import WithLogger
 from tlo.queue.queued_item import QueuedTask
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 from tlo.utils import make_specific_register_func
@@ -37,7 +38,7 @@ class SchedulerProtocol(Protocol):
         """Record the last run time for a task."""
 
 
-class AbstractScheduler(SchedulerProtocol, ABC):
+class AbstractScheduler(WithLogger, SchedulerProtocol, ABC):
     """Abstract base class for schedulers."""
 
     def __init__(
@@ -99,9 +100,11 @@ class SimpleScheduler(AbstractScheduler):
     def tick(self) -> None:
         """Check all registered tasks and enqueue them if they are due."""
         now = datetime.now(UTC)
+        self._logger.debug("Scheduler tick at %s", now.isoformat())
 
         for task in self.registry.list_tasks():
             if task.schedule is None:
+                self._logger.debug("Skipping unscheduled task %s", task.name)
                 continue
 
             last_run = self.get_task_last_run(task.name)
@@ -118,6 +121,10 @@ class SimpleScheduler(AbstractScheduler):
                 except Exception:
                     if self.settings.panic_mode:
                         raise
+                    self._logger.exception(
+                        "Failed to compute schedule for task %s; skipping until next tick",
+                        task.name,
+                    )
                     continue
 
             if should_run:
@@ -135,4 +142,5 @@ class SimpleScheduler(AbstractScheduler):
                 )
                 self.state_store.create(state_record)
                 self.queue.enqueue(qt)
+                self._logger.debug("Enqueued task %s (%s)", qt.task_name, qt.id)
                 self.set_task_last_run(task.name, now)

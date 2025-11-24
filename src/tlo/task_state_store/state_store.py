@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from tlo.common import TaskStateStoreEnum
 from tlo.errors import TloConfigError, TloTaskStateDoesNotExistError
+from tlo.logging import WithLogger
 from tlo.utils import make_specific_register_func
 
 if TYPE_CHECKING:
@@ -49,7 +50,7 @@ class TaskStateStoreProtocol(Protocol):
         """
 
 
-class AbstractTaskStateStore(TaskStateStoreProtocol, ABC):
+class AbstractTaskStateStore(WithLogger, TaskStateStoreProtocol, ABC):
     """Abstract base class for task state stores."""
 
     @abstractmethod
@@ -83,6 +84,7 @@ class InMemoryTaskStateStore(AbstractTaskStateStore):
             msg = f"Record with ID {record.id!r} already exists"
             raise TloConfigError(msg)
         self._store[record.id] = record
+        self._logger.debug("Created task state record %s", record.id)
 
     def update(self, record: TaskStateRecord) -> None:
         """Update an existing record in the task state store."""
@@ -90,6 +92,7 @@ class InMemoryTaskStateStore(AbstractTaskStateStore):
             msg = f"No record found for ID {record.id}"
             raise TloTaskStateDoesNotExistError(msg)
         self._store[record.id] = record
+        self._logger.debug("Updated task state record %s", record.id)
 
     def get(self, id_: str) -> TaskStateRecord:
         """Retrieve a record from the task state store by its ID."""
@@ -97,6 +100,7 @@ class InMemoryTaskStateStore(AbstractTaskStateStore):
         if sr is None:
             msg = f"No record found for ID {id_}"
             raise TloTaskStateDoesNotExistError(msg)
+        self._logger.debug("Fetched task state record %s", id_)
         return sr
 
     def delete(self, id_: str) -> None:
@@ -106,3 +110,4 @@ class InMemoryTaskStateStore(AbstractTaskStateStore):
         except KeyError as exc:
             msg = f"No record found for ID {id_}"
             raise TloTaskStateDoesNotExistError(msg) from exc
+        self._logger.debug("Deleted task state record %s", id_)

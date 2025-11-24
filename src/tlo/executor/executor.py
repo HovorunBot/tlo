@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar, assert_never
 
 from tlo.common import ExecutorEnum, StopBehaviorEnum
 from tlo.errors import TloQueueEmptyError
+from tlo.logging import WithLogger
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 from tlo.utils import make_specific_register_func
 
@@ -65,7 +66,7 @@ class ExecutorProtocol(Protocol):
         """Execute a single queued task asynchronously."""
 
 
-class AbstractExecutor(ExecutorProtocol, ABC):
+class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
     """Abstract base class handling task state transitions."""
 
     asynchronous: ClassVar[bool] = _SENTINEL
@@ -117,6 +118,7 @@ class AbstractExecutor(ExecutorProtocol, ABC):
     def _start(self) -> None:
         """Mark executor as running."""
         self._running = True
+        self._logger.debug("Executor %s started", self.__class__.__name__)
 
     def _get_record(self, task: QueuedTask) -> TaskStateRecord:
         return self.state_store.get(task.id)
@@ -126,6 +128,7 @@ class AbstractExecutor(ExecutorProtocol, ABC):
         record.started_at = record.started_at or now
         record.status = TaskStatus.Running
         self.state_store.update(record)
+        self._logger.debug("Marked task %s as running", record.id)
 
     def _mark_succeeded(self, record: TaskStateRecord, result: object) -> None:
         finished_at = datetime.now(UTC)
@@ -133,6 +136,7 @@ class AbstractExecutor(ExecutorProtocol, ABC):
         record.status = TaskStatus.Succeeded
         record.result = result
         self.state_store.update(record)
+        self._logger.debug("Task %s succeeded", record.id)
 
     def _mark_failed(self, record: TaskStateRecord, exc: Exception) -> None:
         finished_at = datetime.now(UTC)
@@ -140,6 +144,7 @@ class AbstractExecutor(ExecutorProtocol, ABC):
         record.status = TaskStatus.Failed
         record.result = str(exc)
         self.state_store.update(record)
+        self._logger.error("Task %s failed with exception", record.id, exc_info=exc)
 
 
 async def _await_awaitable(awaitable: Awaitable[Any]) -> Any:
@@ -157,12 +162,18 @@ class LocalExecutor(AbstractExecutor):
         """Continuously tick the scheduler and drain the queue."""
         self._start()
         try:
+            self._logger.debug(
+                "Running LocalExecutor loop (tick_interval=%s, default_queue=%s)",
+                self.settings.tick_interval,
+                self.queue.default_queue,
+            )
             while self._running:
                 self.scheduler.tick()
                 self._drain_queue()
                 time.sleep(self.settings.tick_interval)
         finally:
             self._running = False
+            self._logger.debug("LocalExecutor loop stopped")
 
     async def run_async(self) -> None:
         """Run the executor loop asynchronously.
@@ -177,6 +188,7 @@ class LocalExecutor(AbstractExecutor):
         record = self._get_record(task)
         self._mark_running(record)
         try:
+            self._logger.debug("Executing task %s (%s)", task.task_name, task.id)
             task_def = self.registry.get_task(task.task_name)
             result = task_def.func(*task.args, **task.kwargs)
             if inspect.isawaitable(result):
@@ -187,6 +199,7 @@ class LocalExecutor(AbstractExecutor):
             return
 
         self._mark_succeeded(record, result)
+        self._logger.debug("Finished task %s (%s)", task.task_name, task.id)
 
     async def execute_async(self, _task: QueuedTask) -> None:
         """Execute a single queued task asynchronously.
@@ -204,6 +217,7 @@ class LocalExecutor(AbstractExecutor):
     def stop(self, *, cancel: bool = False) -> None:
         """Stop the executor loop and optionally clear pending tasks."""
         self._running = False
+        self._logger.debug("Stopping executor cancel=%s", cancel)
         self._handle_stop_pending(cancel_requested=cancel)
 
     def _handle_stop_pending(self, *, cancel_requested: bool) -> None:
@@ -212,10 +226,13 @@ class LocalExecutor(AbstractExecutor):
 
         match behavior:
             case StopBehaviorEnum.Cancel:
+                self._logger.debug("Cancelling pending tasks on stop")
                 self._cancel_pending_tasks()
             case StopBehaviorEnum.Ignore:
+                self._logger.debug("Ignoring pending tasks on stop")
                 return
             case StopBehaviorEnum.Drain:
+                self._logger.debug("Draining queue before stopping")
                 self._drain_queue()
                 self._cancel_pending_tasks()
             case _:
@@ -242,6 +259,7 @@ class LocalExecutor(AbstractExecutor):
                 record.finished_at = finished_at
                 record.status = TaskStatus.Cancelled
                 self.state_store.update(record)
+                self._logger.debug("Cancelled task %s from queue %s", task.id, queue_name)
                 made_progress = True
 
             if not made_progress:

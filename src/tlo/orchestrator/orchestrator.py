@@ -12,6 +12,7 @@ from tlo.context import (
     initialize_task_registry,
     initialize_task_state_store,
 )
+from tlo.logging import WithLogger
 from tlo.queue.queued_item import QueuedTask
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 
@@ -23,7 +24,7 @@ if TYPE_CHECKING:
     from tlo.tlo_types import TaskId, TTaskDecorator
 
 
-class Tlo:
+class Tlo(WithLogger):
     """Single orchestrator that delegates execution to an executor."""
 
     def __init__(self, **settings: Unpack[TloSettingsKwargs]) -> None:
@@ -47,6 +48,7 @@ class Tlo:
             queue=self._queue,
             scheduler=self._scheduler,
         )
+        self._logger.debug("TLO orchestrator initialised with settings %s", resolved_settings.as_dict())
 
     @property
     def is_running(self) -> bool:
@@ -63,6 +65,7 @@ class Tlo:
         extra: dict[str, Any] | None = None,
     ) -> TTaskDecorator:
         """Register a callable as a task and return a decorator wrapper."""
+        self._logger.debug("Preparing registration for task %s", name or "<callable name>")
         return self._task_registry.register(
             name=name,
             interval=interval,
@@ -73,6 +76,7 @@ class Tlo:
 
     def stop(self, *, cancel: bool = False) -> None:
         """Stop task processing and optionally clear queued tasks."""
+        self._logger.debug("Stopping orchestrator cancel=%s", cancel)
         self._executor.stop(cancel=cancel)
 
     def submit_task(  # noqa: PLR0913
@@ -89,6 +93,13 @@ class Tlo:
         if kwargs is None:
             kwargs = {}
 
+        self._logger.debug(
+            "Submitting task %s to queue %s (eta=%s, exclusive=%s)",
+            name,
+            queue_name or self._settings.default_queue,
+            eta,
+            exclusive,
+        )
         qt = QueuedTask(
             task_name=name,
             args=args,
@@ -125,8 +136,10 @@ class Tlo:
 
     def run(self) -> None:
         """Run the executor loop synchronously."""
+        self._logger.debug("Starting orchestrator in sync mode")
         self._executor.run()
 
     async def run_async(self) -> None:
         """Run the executor loop asynchronously when supported."""
+        self._logger.debug("Starting orchestrator in async mode")
         await self._executor.run_async()

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypedDict, runtime_checkable
 
 from tlo.common import TaskRegistryEnum
 from tlo.errors import TloInvalidRegistrationError, TloTaskLookupError
+from tlo.logging import WithLogger
 from tlo.task_registry.task_def import CronSchedule, IntervalSchedule, ScheduleProtocol, TaskDef
 from tlo.utils import make_specific_register_func
 
@@ -78,7 +79,7 @@ class TaskRegistryProtocol(Protocol):
         """Return ``True`` when a task is registered under *name*."""
 
 
-class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
+class AbstractTaskRegistry(WithLogger, TaskRegistryProtocol, ABC):
     """Abstract base class for task registries.
 
     Specify public interfaces for any Registry implementation which may be used by TLO application
@@ -98,6 +99,7 @@ class AbstractTaskRegistry(TaskRegistryProtocol, ABC):
         def decorator(func: TTaskFunc) -> TTaskFunc:
             """Store the provided callable and return it unchanged."""
             task_name = name or func.__name__
+            self._logger.debug("Registering task %s", task_name)
 
             hints_provided = sum(hint is not None for hint in (interval, cron, schedule))
             if hints_provided > 1:
@@ -170,6 +172,7 @@ class InMemoryTaskRegistry(AbstractTaskRegistry):
             msg = f"Task {name!r} is already registered. Use a unique name or avoid duplicate decorators."
             raise TloInvalidRegistrationError(msg)
         self._tasks[task_def_kwargs["name"]] = TaskDef(**task_def_kwargs)
+        self._logger.debug("Stored task definition for %s", name)
 
     def get_task(self, name: str) -> TaskDef:
         """Return the task definition registered under *name*."""
@@ -179,6 +182,7 @@ class InMemoryTaskRegistry(AbstractTaskRegistry):
                 f"or registred specified task into registry"
             )
             raise TloTaskLookupError(msg)
+        self._logger.debug("Retrieved task definition for %s", name)
         return self._tasks[name]
 
     def list_tasks(self) -> list[TaskDef]:
