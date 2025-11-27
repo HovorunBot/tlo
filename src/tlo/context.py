@@ -17,7 +17,7 @@ from tlo.executor.executor import KNOWN_EXECUTORS, ExecutorProtocol
 from tlo.locking.locker import KNOWN_LOCKERS, LockerProtocol
 from tlo.queue.queue import KNOWN_QUEUES, QueueProtocol
 from tlo.scheduler.scheduler import KNOWN_SCHEDULERS, SchedulerProtocol
-from tlo.settings import TloSettings, TloSettingsKwargs
+from tlo.settings import Loader, TloSettings, TloSettingsKwargs
 from tlo.task_registry.registry import (
     KNOWN_TASK_REGISTRIES,
     TaskRegistryProtocol,
@@ -29,8 +29,13 @@ from tlo.task_state_store.state_store import (
 
 
 def initialize_settings(**settings: Unpack[TloSettingsKwargs]) -> TloSettings:
-    """Initialize `TloSettings` objects using a `TloSettings.load(...) behaviour."""
-    return TloSettings.load(**settings)
+    """Initialize `TloSettings` using the Loader.
+
+    Note: No root prefix is applied here; environment variables will be read
+    without a prefix unless the caller performs loading elsewhere with a
+    specific `root_prefix`.
+    """
+    return Loader().load(TloSettings, overrides=dict(settings))
 
 
 def initialize_task_registry(settings: TloSettings) -> TaskRegistryProtocol:

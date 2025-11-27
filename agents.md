@@ -22,15 +22,18 @@ Guidelines for LLM coding assistants working on this repo. Human-facing guidance
 - Keep to existing interfaces when fixing issues; do not refactor public protocols/ABCs/enums unless the user explicitly
   asks for new code/behaviour.
 - Add new dependencies only after explicit user confirmation.
-- Follow existing style: reST docstrings, Ruff formatting, 120-char lines, minimal comments, and the current
+- Follow the existing style: reST docstrings, Ruff formatting, 120-char lines, minimal comments, and the current
   package/module layout.
 - Prefer adding functionality only when the user explicitly requests it.
 
-## Follow PEP-8
+## Feature and testing approach
 
+- Use mast follow Test Driven Development approach for new features: agree requirements first, ask for clarifications
+  until confident, then write tests before code.
+- Avoid mocks unless explicitly requested when isolating third-party APIs or when faking environment variables.
 - Apply standard PEP-8 naming (snake_case for members, PascalCase for classes/enums, UPPER_SNAKE_CASE for constants).
-- Tests live in `tests/` (separate from `src/`) in `test_*.py` files with `test_*` functions; keep fixtures/helpers scoped
-  to tests.
+- Tests live in `tests/` (separate from `src/`) in `test_*.py` files with `test_*` functions; keep fixtures/helpers
+  scoped to tests.
 - Keep parent/child naming aligned for related types (e.g., `QueueProtocol` → `AbstractQueue` → `MapQueue`).
 
 ## Validation (run unless the user says otherwise)
