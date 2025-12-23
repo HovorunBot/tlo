@@ -11,7 +11,7 @@ maintainers = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "hv-utils[all]>=0.0.1.1",
+    "hv-utils>=0.0.1.1",
     "typing-extensions>=4.15.0",
 ]
 license = { file = "LICENSE" }
@@ -72,11 +72,11 @@ line-length = 120
 lint.select = ["ALL"]
 # Some rules are noisy or overlap with MyPy / style preferences
 lint.ignore = [
-    "D203",    # one-blank-line-before-class (conflicts with D211)
-    "D213",    # multi-line-summary-second-line (allow summary on same line)
-    "E501",    # line length handled by formatter
-    "TD003",   # missing issue link in TODO
-    "COM812",  # missing trailing comma (handled by formatter)
+    "D203", # one-blank-line-before-class (conflicts with D211)
+    "D213", # multi-line-summary-second-line (allow summary on same line)
+    "E501", # line length handled by formatter
+    "TD003", # missing issue link in TODO
+    "COM812", # missing trailing comma (handled by formatter)
     "ANN401", # Any as a kwargs argument
     "TD002", # Missing author in TODO
     "FIX002", # Line contains TODO
