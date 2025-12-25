@@ -1,0 +1,48 @@
+repos:
+  - repo: local
+    hooks:
+      - id: copyright-header
+        name: copyright header
+        entry: uv run --locked --group dev python -m tools.copyright_header
+        language: system
+        pass_filenames: false
+      - id: format
+        name: format (ruff)
+        entry: uv run --locked --group dev ruff format .
+        language: system
+        pass_filenames: false
+      - id: ruff
+        name: ruff
+        entry: uv run --locked --group dev ruff check --fix .
+        language: system
+        pass_filenames: false
+      - id: ty
+        name: ty
+        entry: PYTHONPATH=./src:. uv run --locked --group dev ty check src tests
+        language: system
+        pass_filenames: false
+      - id: tests-py312
+        name: tests (py3.12)
+        entry: uv run --locked --python 3.12 --group dev pytest
+        language: system
+        pass_filenames: false
+      - id: tests-py313
+        name: tests (py3.13)
+        entry: uv run --locked --python 3.13 --group dev pytest
+        language: system
+        pass_filenames: false
+      - id: tests-py314
+        name: tests (py3.14)
+        entry: uv run --locked --python 3.14 --group dev pytest
+        language: system
+        pass_filenames: false
+      - id: restore-python
+        name: restore python to 3.12
+        language: system
+        entry: uv sync --locked --python 3.12
+        pass_filenames: false
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.10.1
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]

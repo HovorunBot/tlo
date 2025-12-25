@@ -100,11 +100,12 @@ def test_tick_skips_future_tasks() -> None:
     assert len(queue) == 0
 
 
-class BrokenSchedule:
+class BrokenSchedule(ScheduleProtocol):
     """Schedule implementation that always raises."""
 
-    def next_run_after(self, _last_run: datetime) -> datetime:
+    def next_run_after(self, last_run: datetime) -> datetime:
         """Raise an error to simulate faulty schedule."""
+        _ = last_run
         msg = "Boom"
         raise ValueError(msg)
 
@@ -121,11 +122,12 @@ def test_tick_handles_errors() -> None:
     assert len(queue) == 0
 
 
-class ConfigErrorSchedule:
+class ConfigErrorSchedule(ScheduleProtocol):
     """Schedule implementation that raises configuration errors."""
 
-    def next_run_after(self, _last_run: datetime) -> datetime:
+    def next_run_after(self, last_run: datetime) -> datetime:
         """Raise TloConfigError to simulate misconfiguration."""
+        _ = last_run
         msg = "config issue"
         raise TloConfigError(msg)
 

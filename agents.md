@@ -40,7 +40,7 @@ Guidelines for LLM coding assistants working on this repo. Human-facing guidance
 
 - `uv run ruff format`
 - `uv run ruff check`
-- `uv run mypy .`
+- `uv run ty check .`
 - `uv run ./scripts/test_suite.py`
 - If a required command cannot be run, explain why and what coverage is missing.
 

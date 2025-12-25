@@ -14,6 +14,7 @@ from tlo.errors import TloQueueEmptyError
 from tlo.logging import WithLogger
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 from tlo.utils import make_specific_register_func
+from hv_utils.sentinel import MISSING
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -31,8 +32,6 @@ KNOWN_EXECUTORS: dict[ExecutorEnum, type[ExecutorProtocol]] = {}
 _register = make_specific_register_func(KNOWN_EXECUTORS)
 
 T_co = TypeVar("T_co", covariant=True)
-
-_SENTINEL: Any = object()
 
 
 @runtime_checkable
@@ -77,12 +76,12 @@ class ExecutorProtocol(Protocol):
 class AbstractExecutor(WithLogger, ExecutorProtocol, ABC):
     """Abstract base class handling task state transitions."""
 
-    asynchronous: ClassVar[bool] = _SENTINEL
+    asynchronous: ClassVar[bool] = MISSING
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         """Ensure that subclasses specify `asynchronous` class attribute."""
         super().__init_subclass__(**kwargs)
-        if cls.asynchronous is _SENTINEL:
+        if cls.asynchronous is MISSING:
             msg = f"{cls.__name__!r} must specify `asynchronous` class attribute"
             raise NotImplementedError(msg)
 
@@ -235,16 +234,18 @@ class LocalExecutor(AbstractExecutor):
         else:
             self._execute_task(task, record)
 
-    async def execute_async(self, _task: QueuedTask) -> None:
+    async def execute_async(self, task: QueuedTask) -> None:
         """Execute a single queued task asynchronously.
 
         Not supported by LocalExecutor.
         """
+        _ = task
         msg = "LocalExecutor does not support asynchronous execution"
         raise TypeError(msg)
 
-    def stop_task(self, _task_id: TaskId) -> TaskStateRecord:
+    def stop_task(self, task_id: TaskId) -> TaskStateRecord:
         """LocalExecutor cannot stop a task mid-execution due to synchronous model."""
+        _ = task_id
         msg = (
             f"{self.__class__.__name__!r} does not support stop_task functionality as implementation is synchronous "
             f"and single threaded."

@@ -1,4 +1,4 @@
-name: "Test and lint"
+name: "Test and Lint"
 
 on:
   push:
@@ -34,15 +34,14 @@ jobs:
       - name: Install package in editable mode
         run: uv pip install -e .
 
+      - name: Check formatting
+        run: uv run --locked --group dev ruff format --check
+
+      - name: Lint
+        run: uv run --locked --group dev ruff check --fix --exit-non-zero-on-fix .
+
+      - name: Static type checking
+        run: uv run --locked --group dev ty check .
+
       - name: Run tests
-        # For example, using `pytest`
-        run: uv run pytest tests
-
-      - name: Run ruff
-        run: uv run ruff check
-
-      - name: Run formatting
-        run: uv run ruff format --check --diff
-
-      - name: Run mypy
-        run: uv run mypy .
+        run: uv run --locked --group dev pytest

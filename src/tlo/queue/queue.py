@@ -150,11 +150,11 @@ class SimpleInMemoryQueue(AbstractQueue):
         super().__init__(settings)
         self._queue: list[QueuedTask] = []
 
-    def enqueue(self, qt: QueuedTask) -> None:
+    def enqueue(self, item: QueuedTask) -> None:
         """Add a task to the queue and maintain ordering by ETA/enqueued time."""
-        self._queue.append(qt)
+        self._queue.append(item)
         self._queue.sort(key=_queue_sort_key)
-        self._logger.debug("Enqueued task %s into queue %s", qt.id, qt.queue_name)
+        self._logger.debug("Enqueued task %s into queue %s", item.id, item.queue_name)
 
     def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return the next eligible task, honouring ETA and exclusiveness."""
@@ -284,14 +284,14 @@ class MapQueue(AbstractQueue):
         super().__init__(settings)
         self._queue: defaultdict[str, deque[QueuedTask]] = defaultdict(lambda: deque())
 
-    def enqueue(self, qt: QueuedTask) -> None:
+    def enqueue(self, item: QueuedTask) -> None:
         """Add a task to the queue to be executed later."""
-        queue = self._queue[qt.queue_name]
-        queue.append(qt)
+        queue = self._queue[item.queue_name]
+        queue.append(item)
         # Re-sort to keep earliest ETA/enqueued tasks in front.
         sorted_queue = sorted(queue, key=_queue_sort_key)
-        self._queue[qt.queue_name] = deque(sorted_queue)
-        self._logger.debug("Enqueued task %s into queue %s", qt.id, qt.queue_name)
+        self._queue[item.queue_name] = deque(sorted_queue)
+        self._logger.debug("Enqueued task %s into queue %s", item.id, item.queue_name)
 
     def dequeue(self, queue_name: str | None = None) -> QueuedTask:
         """Return and remove the next eligible task for the requested queue."""

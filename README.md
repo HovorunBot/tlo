@@ -11,6 +11,8 @@ into more complex systems over time.
 The name TLO comes from the Ukrainian word “тло” (tlo), meaning “background” — a nod to its focus on reliable,
 behind-the-scenes task execution.
 
+Install with `pip install tlo-runner`. Import the package as `tlo`.
+
 ## Key Features
 
 - Minimal, decorator-driven API for registering recurring async or sync callables.
@@ -178,7 +180,7 @@ Use the helper scripts in `scripts/` to keep changes validated across supported 
 uv run ./scripts/test_suite.py
 
 # Execute strict static type checks
-uv run mypy .
+uv run ty check .
 
 # Lint and format the project
 uv run ruff check

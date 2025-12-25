@@ -1,0 +1,64 @@
+name: Release and Publish
+
+on:
+  push:
+    tags:
+      - "*.*.*"     # 0.0.1, 1.2.3
+      - "*.*.*.*"   # 0.0.1.1, 1.2.3.4
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Create Release and Publish
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN != '' && secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: "actions/checkout@v4"
+        with:
+          fetch-depth: 0   # required so git-cliff can see full history
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Install dev dependencies
+        run: uv sync --locked --group dev
+
+      - name: Validate tag matches commitizen version
+        run: |
+          VERSION="$(uv run --locked --group dev cz version -p)"
+          TAG="${GITHUB_REF_NAME}"
+          if [ "$VERSION" != "$TAG" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match commitizen version ${VERSION}."
+            exit 1
+          fi
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Publish to PyPI
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        run: uv publish
+
+      - name: Prepare release notes with PyPI link
+        run: |
+          echo "PyPI: https://pypi.org/project/tlo-runner/${GITHUB_REF_NAME}/" > RELEASE_NOTES.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "Release ${{ github.ref_name }}"
+          body_path: RELEASE_NOTES.md
+          files: dist/*
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}

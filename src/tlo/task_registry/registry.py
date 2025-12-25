@@ -102,7 +102,7 @@ class AbstractTaskRegistry(WithLogger, TaskRegistryProtocol, ABC):
 
         def decorator(func: TTaskFunc) -> TTaskFunc:
             """Store the provided callable and return it unchanged."""
-            task_name = name or func.__name__
+            task_name = name or getattr(func, "__name__", "<unknown>")
             self._logger.debug("Registering task %s", task_name)
 
             hints_provided = sum(hint is not None for hint in (interval, cron, schedule))

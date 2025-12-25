@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from string import Formatter
 from typing import TYPE_CHECKING, Any, Final, Protocol, runtime_checkable
 
-from hv_utils import parse_cron
+from hv_utils.cron import parse_cron
 
 from tlo.errors import TloConfigError
 
