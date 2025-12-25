@@ -1,6 +1,6 @@
 [project]
 name = "tlo-runner"
-version = "0.0.0.a1"
+version = "0.1.0"
 description = "Lightweight async background task runner and orcestrator"
 readme = "README.md"
 authors = [
