@@ -452,11 +452,10 @@ wheels = [
 
 [[package]]
 name = "tlo-runner"
-version = "0.0.0a1"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "hv-utils" },
-    { name = "pytest-cov" },
     { name = "typing-extensions" },
 ]
 
@@ -472,7 +471,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "hv-utils", specifier = ">=0.1.0" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 
