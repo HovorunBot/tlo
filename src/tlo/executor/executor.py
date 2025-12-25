@@ -9,12 +9,13 @@ import inspect
 import time
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypeVar, assert_never, runtime_checkable
 
+from hv_utils.sentinel import MISSING
+
 from tlo.common import ExecutorEnum, StopBehaviorEnum
 from tlo.errors import TloQueueEmptyError
 from tlo.logging import WithLogger
 from tlo.task_state_store.common import TaskStateRecord, TaskStatus
 from tlo.utils import make_specific_register_func
-from hv_utils.sentinel import MISSING
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
